@@ -730,19 +730,24 @@ function toggleRec(id){
   const all=rLoad();if(!all[date])all[date]={};
   if(!all[date][id])all[date][id]={done:false,note:''};
   all[date][id].done=!all[date][id].done;
-  rSave(all);renderRecoveryItems();
+  rSave(all); // auto-save immediately like workouts
+  renderRecoveryItems();
 }
 function updateRecNote(id,val){
   const date=document.getElementById('rec-date')?.value;if(!date)return;
   const all=rLoad();if(!all[date])all[date]={};
   if(!all[date][id])all[date][id]={done:false,note:''};
-  all[date][id].note=val;rSave(all);
+  all[date][id].note=val;
+  rSave(all); // auto-save immediately
 }
 function saveRecovery(){
   const date=document.getElementById('rec-date')?.value;if(!date){alert('Select date');return;}
   const all=rLoad();if(!all[date])all[date]={};
   all[date].dayNotes=document.getElementById('rec-day-notes')?.value||'';
-  rSave(all);alert('Recovery saved for '+fmtDate(date));
+  rSave(all);
+  // show brief confirmation without alert
+  const btn=document.querySelector('#pg-recovery .btn-dark');
+  if(btn){const orig=btn.textContent;btn.textContent='✓ Saved!';btn.style.background='var(--green)';setTimeout(()=>{btn.textContent=orig;btn.style.background='';},1500);}
 }
 
 // ─── HISTORY PAGE ────────────────────────────────────────────────────────────
@@ -985,8 +990,12 @@ function renderReportPage(){
     <div class="ptitle">Report</div>
     <div class="psub">${dates.length?fmtDate(dates[0])+' → '+fmtDate(dates[dates.length-1]):''} · ${data.length} sessions</div>
     <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
-      <button class="btn btn-ghost btn-sm" onclick="exportReport()">⬇ Export</button>
-      <button class="btn btn-ghost btn-sm" onclick="importData()">⬆ Import</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportReport()">⬇ Export txt</button>
+      <button class="btn btn-green btn-sm" onclick="backupData()">💾 Backup JSON</button>
+      <button class="btn btn-amber btn-sm" onclick="restoreData()">⬆ Restore JSON</button>
+    </div>
+    <div class="ok-box" style="font-size:11px;margin-bottom:12px;">
+      💡 <strong>Backup tip:</strong> Tap "Backup JSON" to save all your data including recovery logs. If you switch browsers or reinstall, tap "Restore JSON" to get everything back instantly.
     </div>
 
     <!-- PHASE TIMELINE -->
@@ -1629,7 +1638,61 @@ function exportReport(){
   a.click();URL.revokeObjectURL(a.href);
 }
 
-function importData(){
+function backupData(){
+  const backup={
+    version:'v5',
+    exported:new Date().toISOString(),
+    workouts:wLoad(),
+    recovery:rLoad(),
+    profile:pLoad()
+  };
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`bash_training_backup_${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function restoreData(){
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='.json';
+  inp.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const data=JSON.parse(ev.target.result);
+        if(data.version==='v5'||data.workouts){
+          if(data.workouts&&data.workouts.length){
+            wSave(data.workouts);
+          }
+          if(data.recovery&&Object.keys(data.recovery).length){
+            rSave(data.recovery);
+          }
+          if(data.profile&&Object.keys(data.profile).length){
+            pSave(data.profile);
+          }
+          const wCount=data.workouts?data.workouts.length:0;
+          const rCount=data.recovery?Object.keys(data.recovery).length:0;
+          alert(`✅ Restored successfully!\n${wCount} workouts · ${rCount} recovery days · Profile data`);
+          renderReportPage();
+        } else if(Array.isArray(data)){
+          // legacy format — just workouts array
+          wSave(data);
+          alert(`✅ Restored ${data.length} workouts.`);
+          renderReportPage();
+        } else {
+          alert('Could not read this file. Make sure it is a backup file from this app.');
+        }
+      }catch(err){
+        alert('Error reading file: '+err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+  inp.click();
+}
   const inp=document.createElement('input');inp.type='file';inp.accept='.json,.txt';
   inp.onchange=e=>{
     const file=e.target.files[0];if(!file)return;
@@ -1757,10 +1820,124 @@ function seed(){
   wSave(sd);
   // Seed default profile
   if(!Object.keys(pLoad()).length){pSave({name:'Bechara El Khoury',height:173,weight:74,dob:'1987-10-01'});}
+
+  // ─── SEED RECOVERY DATA ─────────────────────────────────────────────────────
+  // Only seed if recovery is empty
+  if(!Object.keys(rLoad()).length){
+    const rec = {
+      // January
+      '2026-01-17':{whm:{done:false},cold:{done:false},sauna:{done:false},swim:{done:false},stretch_am:{done:false},stretch_pm:{done:false},dayNotes:'IMPZ session'},
+      '2026-01-22':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Pull day'},
+      '2026-01-24':{whm:{done:false},cold:{done:false},sauna:{done:true,note:'20min'},stretch_pm:{done:false},dayNotes:'Push — sauna 20min'},
+      '2026-01-25':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Legs'},
+      '2026-01-28':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Pull — new workout'},
+      '2026-01-29':{whm:{done:false},cold:{done:true,note:'5min'},stretch_pm:{done:false},dayNotes:'Push — cold shower 5min'},
+      '2026-01-31':{whm:{done:false},cold:{done:false},sauna:{done:true,note:'20min 100°C'},swim:{done:true},stretch_pm:{done:false},dayNotes:'Legs — sauna 20min 100°C + swim'},
+      // February
+      '2026-02-01':{whm:{done:false},cold:{done:false},sauna:{done:true,note:'18min 110°C'},stretch_pm:{done:false},dayNotes:'Upper B — sauna 18min 110°C'},
+      '2026-02-02':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Push — good day'},
+      '2026-02-05':{whm:{done:false},cold:{done:true,note:'ice shower'},stretch_pm:{done:false},dayNotes:'Pull — ice shower'},
+      '2026-02-07':{whm:{done:false},cold:{done:false},sauna:{done:true,note:'20min 100°C'},swim:{done:true},stretch_pm:{done:false},dayNotes:'Legs — sauna 20min 100°C + swim'},
+      '2026-02-08':{whm:{done:false},cold:{done:false},sauna:{done:true,note:'18min 110°C'},stretch_pm:{done:false},dayNotes:'Upper B — sauna 18min 110°C'},
+      '2026-02-11':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Push — good day'},
+      '2026-02-13':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Pull day'},
+      '2026-02-17':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Legs'},
+      '2026-02-18':{whm:{done:false},cold:{done:false},sauna:{done:true,note:'20min 110°C'},stretch_pm:{done:false},dayNotes:'Upper B + hip thrust compensation — sauna'},
+      '2026-02-19':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Push + deadlift compensation'},
+      '2026-02-22':{whm:{done:false},cold:{done:false},sauna:{done:true,note:'20min 110°C'},stretch_pm:{done:false},dayNotes:'Pull — sauna 110°C'},
+      '2026-02-24':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Legs — crawling back home'},
+      '2026-02-26':{whm:{done:false},cold:{done:false},sauna:{done:true,note:'30min evening'},stretch_pm:{done:false},dayNotes:'Upper B — sauna 30min evening'},
+      '2026-02-28':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Push — very good day'},
+      // March — breathwork + cold shower EVERY day from March 6 onward
+      '2026-03-01':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Pull — very good pumped'},
+      '2026-03-03':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Legs — amazing mindset'},
+      '2026-03-04':{whm:{done:false},cold:{done:false},stretch_pm:{done:false},dayNotes:'Upper B — good'},
+      '2026-03-06':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Push — ok good, tired a bit (not much sleep)'},
+      '2026-03-07':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Pull — very good'},
+      '2026-03-09':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Legs — amazing mindset'},
+      '2026-03-10':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Upper B — good good'},
+      '2026-03-12':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Push — overall good, chest press super hard'},
+      '2026-03-13':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},sauna:{done:true,note:'15min'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Pull — good. Sauna 15min'},
+      '2026-03-15':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},sauna:{done:true,note:'15min'},swim:{done:true},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Legs — amazing mindset. Sauna + pool'},
+      '2026-03-16':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Upper B — good good'},
+      '2026-03-18':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},sauna:{done:true,note:'20min'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Push — chest press super hard. Sauna 20min'},
+      '2026-03-19':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},sauna:{done:true,note:'after session'},swim:{done:false},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Pull — good pump. Sauna'},
+      '2026-03-20':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},sauna:{done:true,note:'20min boiling'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Legs — amazing mindset. Sauna 20min boiling'},
+      '2026-03-21':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Upper B — good pump'},
+      '2026-03-24':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Push — chest press hard'},
+      '2026-03-25':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Pull — proud of myself!'},
+      '2026-03-26':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Legs — heavy, amazing mindset'},
+      '2026-03-27':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'7min freeze (tight pressure)'},sauna:{done:true,note:'16min 90°C'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Upper B — good pump. Sauna 16min'},
+      '2026-03-28':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'7min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},mob_full:{done:false},dayNotes:'ABS day — 8min circuit'},
+      '2026-03-29':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},sauna:{done:true,note:'20min 90°C'},swim:{done:true},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Push — overall good. Sauna + pool'},
+      '2026-03-30':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Pull — good pump'},
+      '2026-03-31':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'7min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'ABS day'},
+      // April — breathwork + cold + stretching every day
+      '2026-04-01':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min freeze'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Legs — heavy, amazing mindset'},
+      '2026-04-02':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'7min freeze'},sauna:{done:true,note:'16min 90°C'},stretch_am:{done:false},stretch_pm:{done:true,note:'5-10min'},dayNotes:'Upper B — good pump. Sauna 16min'},
+      '2026-04-03':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min'},stretch_am:{done:false},stretch_pm:{done:true},dayNotes:'Recovery day'},
+      '2026-04-04':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min'},stretch_am:{done:false},stretch_pm:{done:true},dayNotes:'Recovery day'},
+      '2026-04-05':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min'},stretch_am:{done:false},stretch_pm:{done:true},dayNotes:'Recovery day — Phase 1 ends'},
+      '2026-04-06':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min'},stretch_am:{done:false},stretch_pm:{done:true},dayNotes:'Phase 2 starts — Upper B session 23:17'},
+      '2026-04-07':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min'},stretch_am:{done:false},stretch_pm:{done:true},dayNotes:'Recovery day'},
+      '2026-04-08':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min'},stretch_am:{done:false},stretch_pm:{done:true},dayNotes:'Legs session — morning 08:02'},
+      '2026-04-09':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min'},stretch_am:{done:false},stretch_pm:{done:true},dayNotes:'Push session — morning 07:01. Good, pumped.'},
+    };
+    rSave(rec);
+  }
+}
+
+// ─── MIGRATE OLD DATA ────────────────────────────────────────────────────────
+function migrateOldData(){
+  // Migrate workouts from any previous version key
+  const oldWkKeys=['bechara_v4_workouts','bechara_v4_wk','bechara_v3_workouts','bechara_workouts'];
+  if(!wLoad().length){
+    for(const key of oldWkKeys){
+      try{
+        const old=JSON.parse(localStorage.getItem(key)||'null');
+        if(old&&Array.isArray(old)&&old.length){
+          wSave(old);
+          console.log('Migrated workouts from',key);
+          break;
+        }
+      }catch(e){}
+    }
+  }
+  // Migrate recovery from any previous version key
+  const oldRecKeys=['bechara_v4_recovery','bechara_v4_rec','bechara_v3_recovery','bechara_recovery'];
+  const currentRec=rLoad();
+  if(!Object.keys(currentRec).length){
+    for(const key of oldRecKeys){
+      try{
+        const old=JSON.parse(localStorage.getItem(key)||'null');
+        if(old&&typeof old==='object'&&Object.keys(old).length){
+          rSave(old);
+          console.log('Migrated recovery from',key);
+          break;
+        }
+      }catch(e){}
+    }
+  }
+  // Migrate profile from any previous version key
+  const oldProfKeys=['bechara_v4_prof','bechara_v4_profile','bechara_profile'];
+  const currentProf=pLoad();
+  if(!Object.keys(currentProf).length){
+    for(const key of oldProfKeys){
+      try{
+        const old=JSON.parse(localStorage.getItem(key)||'null');
+        if(old&&typeof old==='object'&&Object.keys(old).length){
+          pSave(old);
+          console.log('Migrated profile from',key);
+          break;
+        }
+      }catch(e){}
+    }
+  }
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded',()=>{
+  migrateOldData();
   seed();
   // Check for draft
   const draft=draftLoad();
