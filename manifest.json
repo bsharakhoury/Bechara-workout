@@ -1,8 +1,8 @@
 {
   "name": "Bechara Workout Phase 2",
   "short_name": "Workout",
-  "start_url": "/Bechara-workout/",
-  "scope": "/Bechara-workout/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#111111",
   "theme_color": "#111111",
