@@ -451,7 +451,7 @@ function renderProgramPage(){
     return'';
   };
   document.getElementById('pg-program').innerHTML=`
-    <div class="ptitle">Phase 2 — V5</div>
+    <div class="ptitle">Bash Training | Phase 2</div>
     <div class="psub">12 weeks · Started Apr 6, 2026</div>
     ${timerHTML('td1','tb1','')}
     <div style="margin-top:10px;">
@@ -1132,34 +1132,154 @@ function renderWkRecap(){
   const el=document.getElementById('wk-recap-list');if(!el)return;
   el.innerHTML=show.map(w=>{
     const vol=w.exercises.reduce((a,e)=>a+e.sets.reduce((b,s)=>b+(+s.r||0)*(+s.kg||0),0),0);
+    const sets=w.exercises.reduce((a,e)=>a+e.sets.length,0);
     const ph=w.phase||getPhase(w.date);
-    return`<div style="border-bottom:.5px solid var(--border);padding:7px 0;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <span style="font-size:12px;font-weight:700;">${fmtDate(w.date,true)}</span>
-          <span class="badge ${w.type}" style="margin-left:5px;">${w.type}</span>
-          <span class="badge ${ph}" style="margin-left:3px;">${ph}</span>
+    const topLifts=w.exercises
+      .filter(e=>e.sets.some(s=>+s.kg>0))
+      .map(e=>({name:e.name,top:Math.max(...e.sets.map(s=>+s.kg||0))}))
+      .sort((a,b)=>b.top-a.top).slice(0,3);
+    return`<div style="border-bottom:.5px solid var(--border);padding:8px 0;cursor:pointer;" onclick="showWkRecapDetail('${w.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+            <span style="font-size:12px;font-weight:700;">${fmtDate(w.date,true)}${w.time?' · '+w.time:''}</span>
+            <span class="badge ${w.type}">${w.type}</span>
+            <span class="badge ${ph}">${ph}</span>
+          </div>
+          <div style="font-size:10px;color:var(--text2);margin-top:3px;">${sets} sets · ${(vol/1000).toFixed(1)}t volume</div>
+          ${topLifts.length?`<div style="font-size:10px;color:var(--text2);margin-top:2px;">Top: ${topLifts.map(l=>l.name.split(' ').slice(-1)[0]+' '+l.top+'kg').join(' · ')}</div>`:''}
+          ${w.notes?`<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic;">"${w.notes.substring(0,60)}"</div>`:''}
         </div>
-        <span style="font-size:11px;color:var(--text2);">${(vol/1000).toFixed(1)}t</span>
+        <span style="font-size:18px;color:var(--text3);margin-left:8px;">›</span>
       </div>
-      ${w.notes?`<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic;">"${w.notes.substring(0,60)}"</div>`:''}
     </div>`;
   }).join('');
   const btn=document.getElementById('wk-more-btn');
-  if(btn)btn.textContent=reportWorkoutShowAll?'Show less ↑':'See more ('+data.length+') ↓';
+  if(btn)btn.textContent=reportWorkoutShowAll?'Show less ↑':'See all ('+data.length+') ↓';
+}
+
+function showWkRecapDetail(id){
+  const w=wLoad().find(x=>x.id===id);if(!w)return;
+  const vol=w.exercises.reduce((a,e)=>a+e.sets.reduce((b,s)=>b+(+s.r||0)*(+s.kg||0),0),0);
+  const sets=w.exercises.reduce((a,e)=>a+e.sets.length,0);
+  const ph=w.phase||getPhase(w.date);
+  const ov=document.createElement('div');ov.className='overlay';
+  // muscle split
+  const muscleSets={};
+  w.exercises.forEach(e=>{muscleSets[e.muscle]=(muscleSets[e.muscle]||0)+e.sets.length;});
+  const totalS=Object.values(muscleSets).reduce((a,b)=>a+b,0);
+  ov.innerHTML=`<div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+      <div>
+        <div class="modal-title" style="margin-bottom:4px;">${fmtDate(w.date)}${w.time?' · '+w.time:''}</div>
+        <div style="display:flex;gap:5px;"><span class="badge ${w.type}">${w.type}</span><span class="badge ${ph}">${ph}</span></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="this.closest('.overlay').remove()">✕</button>
+    </div>
+    <!-- STATS ROW -->
+    <div class="g3" style="margin-bottom:12px;">
+      <div class="stat"><div class="stat-v">${w.exercises.length}</div><div class="stat-l">Exercises</div></div>
+      <div class="stat"><div class="stat-v">${sets}</div><div class="stat-l">Sets</div></div>
+      <div class="stat"><div class="stat-v">${(vol/1000).toFixed(1)}t</div><div class="stat-l">Volume</div></div>
+    </div>
+    <!-- MUSCLE SPLIT -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="ctitle">Muscle split</div>
+      ${Object.entries(muscleSets).map(([m,c])=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <div style="font-size:11px;min-width:80px;">${m}</div>
+        <div style="flex:1;background:var(--bg3);border-radius:4px;height:8px;">
+          <div style="width:${Math.round((c/totalS)*100)}%;height:8px;border-radius:4px;background:var(--acc);"></div>
+        </div>
+        <div style="font-size:10px;color:var(--text2);">${c} sets</div>
+      </div>`).join('')}
+    </div>
+    <!-- EXERCISE DETAIL -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="ctitle">Exercise log</div>
+      ${w.exercises.map(ex=>{
+        const topKg=Math.max(...ex.sets.map(s=>+s.kg||0));
+        const totalReps=ex.sets.reduce((a,s)=>a+(+s.r||0),0);
+        return`<div style="padding:7px 0;border-bottom:.5px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div style="font-size:12px;font-weight:700;">${ex.name}</div>
+              <div style="font-size:10px;color:var(--text2);">${ex.muscle} · ${ex.sets.length} sets · ${totalReps} total reps${topKg?` · top ${topKg}kg`:''}</div>
+            </div>
+          </div>
+          <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;">
+            ${ex.sets.map((s,i)=>`<div style="background:var(--bg3);border-radius:4px;padding:3px 6px;font-size:10px;">
+              ${i+1}: ${s.r||'—'}r${s.kg?' @ '+s.kg+'kg':''}${s.n?' · '+s.n:''}
+            </div>`).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${w.notes?`<div class="info-box">"${w.notes}"</div>`:''}
+    ${w.recovery?`<div class="ok-box">Recovery: ${w.recovery}</div>`:''}
+    <div style="display:flex;gap:6px;margin-top:10px;">
+      <button class="btn btn-amber btn-sm" onclick="editWorkout('${w.id}');this.closest('.overlay').remove()">✏ Edit</button>
+      <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="this.closest('.overlay').remove()">Close</button>
+    </div>
+  </div>`;
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  document.body.appendChild(ov);
 }
 
 function renderRecRecap(){
   const all=rLoad();const dates=Object.keys(all).sort().reverse();
   const show=reportRecShowAll?dates:dates.slice(0,7);
   const el=document.getElementById('rec-recap-list');if(!el)return;
+  if(!dates.length){el.innerHTML='<div style="font-size:12px;color:var(--text2);padding:8px 0;">No recovery logs yet. Use the Recovery tab to log daily.</div>';return;}
   el.innerHTML=show.map(d=>{
-    const day=all[d];const done=REC_ITEMS.filter(ri=>day[ri.id]?.done);
-    return`<div style="border-bottom:.5px solid var(--border);padding:7px 0;">
-      <div style="font-size:12px;font-weight:700;">${fmtDate(d,true)}</div>
-      <div style="margin-top:3px;">${done.map(ri=>`<span class="rec-tag">${ri.label.split(' ')[0]}</span>`).join('')||'<span style="color:var(--text3);font-size:10px;">—</span>'}</div>
+    const day=all[d];
+    const done=REC_ITEMS.filter(ri=>day[ri.id]?.done);
+    const withNotes=REC_ITEMS.filter(ri=>day[ri.id]?.note&&day[ri.id].note.trim());
+    return`<div style="border-bottom:.5px solid var(--border);padding:8px 0;cursor:pointer;" onclick="showRecDetail('${d}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:700;margin-bottom:3px;">${fmtDate(d,true)}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:3px;">
+            ${done.length?done.map(ri=>`<span class="rec-tag">${ri.label.split(' ')[0]}</span>`).join(''):'<span style="color:var(--text3);font-size:10px;">Nothing logged</span>'}
+          </div>
+          ${withNotes.length?`<div style="font-size:10px;color:var(--text2);margin-top:3px;">${withNotes.map(ri=>ri.label.split(' ')[0]+': '+all[d][ri.id].note).join(' · ')}</div>`:''}
+          ${day.dayNotes?`<div style="font-size:10px;color:var(--text2);font-style:italic;margin-top:2px;">"${day.dayNotes.substring(0,60)}"</div>`:''}
+        </div>
+        <span style="font-size:18px;color:var(--text3);margin-left:8px;">›</span>
+      </div>
     </div>`;
   }).join('');
+}
+
+function showRecDetail(date){
+  const all=rLoad();const day=all[date]||{};
+  const done=REC_ITEMS.filter(ri=>day[ri.id]?.done);
+  const notDone=REC_ITEMS.filter(ri=>!day[ri.id]?.done);
+  const ov=document.createElement('div');ov.className='overlay';
+  ov.innerHTML=`<div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div class="modal-title">${fmtDate(date)} — Recovery</div>
+      <button class="btn btn-ghost btn-sm" onclick="this.closest('.overlay').remove()">✕</button>
+    </div>
+    <div class="stat-g" style="margin-bottom:12px;">
+      <div class="stat"><div class="stat-v" style="color:var(--green);">${done.length}</div><div class="stat-l">Done</div></div>
+      <div class="stat"><div class="stat-v" style="color:var(--text2);">${notDone.length}</div><div class="stat-l">Skipped</div></div>
+    </div>
+    <div class="card" style="margin-bottom:10px;">
+      <div class="ctitle">Completed ✓</div>
+      ${done.length?done.map(ri=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:.5px solid var(--border);font-size:12px;">
+        <span style="color:var(--green);font-weight:600;">✓ ${ri.label}</span>
+        ${day[ri.id]?.note?`<span style="color:var(--text2);font-size:11px;">${day[ri.id].note}</span>`:''}
+      </div>`).join(''):'<div style="font-size:12px;color:var(--text2);">Nothing completed this day.</div>'}
+    </div>
+    <div class="card" style="margin-bottom:10px;">
+      <div class="ctitle">Skipped</div>
+      ${notDone.map(ri=>`<div style="padding:5px 0;border-bottom:.5px solid var(--border);font-size:11px;color:var(--text3);">— ${ri.label}</div>`).join('')}
+    </div>
+    ${day.dayNotes?`<div class="info-box">"${day.dayNotes}"</div>`:''}
+    <button class="btn btn-ghost btn-full" onclick="this.closest('.overlay').remove();showPg('recovery')">Edit this day →</button>
+  </div>`;
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  document.body.appendChild(ov);
 }
 
 function renderFixGood(map,ph2){
