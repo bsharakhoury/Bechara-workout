@@ -1656,6 +1656,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   showPg('program');
 });
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/Bechara-workout/sw.js').catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>
