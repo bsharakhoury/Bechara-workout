@@ -699,7 +699,11 @@ function renderRecoveryPage(){
   const now=new Date().toISOString().split('T')[0];
   document.getElementById('pg-recovery').innerHTML=`
     <div class="ptitle">Daily recovery</div>
-    <div class="psub">Tick what you did today</div>
+    <div class="psub">Tick what you did today — saves instantly</div>
+    <div class="ok-box" style="font-size:11px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+      <span>Missing history? Tap to reload all past recovery data.</span>
+      <button class="btn btn-green btn-xs" onclick="forceReseedRecovery()">Reload history</button>
+    </div>
     <div class="card"><div class="field"><label>Date</label><input type="date" id="rec-date" value="${now}" onchange="renderRecoveryItems()"></div></div>
     <div id="rec-items"></div>
     <button class="btn btn-dark btn-full" onclick="saveRecovery()">Save recovery log</button>`;
@@ -740,6 +744,13 @@ function updateRecNote(id,val){
   all[date][id].note=val;
   rSave(all); // auto-save immediately
 }
+function forceReseedRecovery(){
+  localStorage.removeItem('bechara_rec_seed_v5_2');
+  seed();
+  renderRecoveryPage();
+  alert('Recovery history reloaded — ' + Object.keys(rLoad()).length + ' dates found. Check History → Recovery tab.');
+}
+
 function saveRecovery(){
   const date=document.getElementById('rec-date')?.value;if(!date){alert('Select date');return;}
   const all=rLoad();if(!all[date])all[date]={};
@@ -1808,9 +1819,11 @@ function seed(){
   if(!Object.keys(pLoad()).length){pSave({name:'Bechara El Khoury',height:173,weight:74,dob:'1987-10-01'});}
 
   // ─── SEED RECOVERY DATA ─────────────────────────────────────────────────────
-  // Force seed if recovery has less than 10 dates (means it was never properly seeded)
-  const existingRec = rLoad();
-  if(Object.keys(existingRec).length < 10){
+  // Use version flag to force seed once per app version
+  const REC_SEED_VERSION = 'bechara_rec_seed_v5_2';
+  const alreadySeeded = localStorage.getItem(REC_SEED_VERSION);
+  if(!alreadySeeded){
+    const existingRec = rLoad();
     const rec = {
       // January
       '2026-01-17':{whm:{done:false},cold:{done:false},sauna:{done:false},swim:{done:false},stretch_am:{done:false},stretch_pm:{done:false},dayNotes:'IMPZ session'},
@@ -1873,6 +1886,7 @@ function seed(){
     // Merge: seed fills in dates not already logged by user
     const merged = Object.assign({}, rec, existingRec);
     rSave(merged);
+    localStorage.setItem(REC_SEED_VERSION, '1');
   }
 }
 
