@@ -1693,20 +1693,6 @@ function restoreData(){
   };
   inp.click();
 }
-  const inp=document.createElement('input');inp.type='file';inp.accept='.json,.txt';
-  inp.onchange=e=>{
-    const file=e.target.files[0];if(!file)return;
-    const reader=new FileReader();
-    reader.onload=ev=>{
-      try{
-        const data=JSON.parse(ev.target.result);
-        if(Array.isArray(data)){wSave(data);alert('Workout data imported — '+data.length+' sessions.');renderHistoryPage();}
-        else if(data.workouts){wSave(data.workouts);if(data.recovery)rSave(data.recovery);alert('Data imported successfully.');renderHistoryPage();}
-        else{alert('Unrecognised format.');}
-      }catch(err){alert('Could not read file: '+err.message);}
-    };reader.readAsText(file);
-  };inp.click();
-}
 
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
 const PAGES=['program','log','recovery','history','progress','report','profile'];
@@ -1822,8 +1808,9 @@ function seed(){
   if(!Object.keys(pLoad()).length){pSave({name:'Bechara El Khoury',height:173,weight:74,dob:'1987-10-01'});}
 
   // ─── SEED RECOVERY DATA ─────────────────────────────────────────────────────
-  // Only seed if recovery is empty
-  if(!Object.keys(rLoad()).length){
+  // Force seed if recovery has less than 10 dates (means it was never properly seeded)
+  const existingRec = rLoad();
+  if(Object.keys(existingRec).length < 10){
     const rec = {
       // January
       '2026-01-17':{whm:{done:false},cold:{done:false},sauna:{done:false},swim:{done:false},stretch_am:{done:false},stretch_pm:{done:false},dayNotes:'IMPZ session'},
@@ -1883,7 +1870,9 @@ function seed(){
       '2026-04-08':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min'},stretch_am:{done:false},stretch_pm:{done:true},dayNotes:'Legs session — morning 08:02'},
       '2026-04-09':{whm:{done:true,note:'25min morning'},cold:{done:true,note:'5min'},stretch_am:{done:false},stretch_pm:{done:true},dayNotes:'Push session — morning 07:01. Good, pumped.'},
     };
-    rSave(rec);
+    // Merge: seed fills in dates not already logged by user
+    const merged = Object.assign({}, rec, existingRec);
+    rSave(merged);
   }
 }
 
@@ -1903,20 +1892,18 @@ function migrateOldData(){
       }catch(e){}
     }
   }
-  // Migrate recovery from any previous version key
+  // Migrate recovery from any previous version key — always merge
   const oldRecKeys=['bechara_v4_recovery','bechara_v4_rec','bechara_v3_recovery','bechara_recovery'];
-  const currentRec=rLoad();
-  if(!Object.keys(currentRec).length){
-    for(const key of oldRecKeys){
-      try{
-        const old=JSON.parse(localStorage.getItem(key)||'null');
-        if(old&&typeof old==='object'&&Object.keys(old).length){
-          rSave(old);
-          console.log('Migrated recovery from',key);
-          break;
-        }
-      }catch(e){}
-    }
+  for(const key of oldRecKeys){
+    try{
+      const old=JSON.parse(localStorage.getItem(key)||'null');
+      if(old&&typeof old==='object'&&Object.keys(old).length){
+        const current=rLoad();
+        const merged=Object.assign({},old,current);
+        rSave(merged);
+        console.log('Merged recovery from',key,'— dates:',Object.keys(old).length);
+      }
+    }catch(e){}
   }
   // Migrate profile from any previous version key
   const oldProfKeys=['bechara_v4_prof','bechara_v4_profile','bechara_profile'];
