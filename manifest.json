@@ -1,26 +1,16 @@
 {
-  "name": "Bechara Workout Phase 2",
-  "short_name": "Workout",
-  "description": "Bash Training Phase 2 tracker",
-  "start_url": "https://bashworkout.netlify.app/",
-  "scope": "https://bashworkout.netlify.app/",
+  "name": "Bash Training Phase 2",
+  "short_name": "Bash Training",
+  "description": "Personal fitness tracker — Phase 2",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#111111",
-  "theme_color": "#111111",
+  "background_color": "#FFD600",
+  "theme_color": "#FFD600",
   "orientation": "portrait-primary",
   "prefer_related_applications": false,
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
   ]
 }
