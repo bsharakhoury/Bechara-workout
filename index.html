@@ -407,8 +407,11 @@ label {
 .cal-day.has-workout { background: var(--blk); color: #fff; }
 [data-dark] .cal-day.has-workout { background: var(--y); color: var(--blk); }
 .cal-day.has-workout .cal-type-dot { display: none; }
+.cal-day.has-recovery { border-color: var(--green); }
+.cal-day.has-recovery::after { content:''; position:absolute; bottom:3px; right:3px; width:5px; height:5px; border-radius:50%; background:var(--green); }
 .cal-day.next-session { border-color: var(--green); background: rgba(0,170,68,.08); }
 .cal-day.other-month { opacity: .3; }
+.cal-day.drag-cal-over { border: 2px dashed var(--y) !important; background: rgba(255,214,0,.08); }
 .cal-day-num { font-size: 13px; line-height: 1; }
 .cal-type-dot { width: 5px; height: 5px; border-radius: 50%; margin-top: 2px; }
 .cal-type-label { font-size: 8px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; letter-spacing: .3px; line-height: 1; margin-top: 1px; }
@@ -573,7 +576,8 @@ const REC_ITEMS=[
   {id:'cold',label:'Cold shower',sub:'5–7 min target',note:true,ph:'Duration (min)'},
   {id:'sauna',label:'Sauna',sub:'15–20 min',note:true,ph:'Duration + temp'},
   {id:'swim',label:'Swim / pool',sub:''},
-  {id:'stretch_am',label:'Morning stretch',sub:'5 min — chin tucks + foam roller'},
+  {id:'shakti',label:'Shakti Matt',sub:'Acupressure mat — 20–40 min',note:true,ph:'Duration (min)'},
+  {id:'stretch_am',label:'Morning stretch',sub:'5 min — chin tucks + wall slides'},
   {id:'stretch_pm',label:'Evening stretch',sub:'12 min — hips + hamstrings + neck'},
   {id:'mob_full',label:'Full mobility Day E',sub:'60 min complete session'},
   {id:'walk',label:'Walk / nature / barefoot',sub:'',note:true,ph:'Duration'},
@@ -644,22 +648,23 @@ const PROG={
       {name:'Suitcase Carry',muscle:'Core',sets:3,reps:'20m ea.',weight:'22.5',tempo:'—',rest:'60s',note:'SS with Dead Bug.',tags:['ss'],ss:'Dead Bug'},
       {name:'Abs — Plank circuit',muscle:'Abs',sets:3,reps:'60s each',weight:'BW',tempo:'—',rest:'30s',note:'Plank 60s · Side plank 30s ea. · Pallof hold 10s ea.',tags:['abs'],ss:null},
     ]},
-  E:{label:'Day E — Mobility',type:'Mobility',
-    warmup:'Box breathing 5 min. Chin tucks before anything else.',
+  E:{label:'Day E — Mobility (Home)',type:'Mobility',
+    warmup:'Box breathing 5 min before starting. No equipment needed except elastic band.',
     exercises:[
-      {name:'Box Breathing',muscle:'Mobility',sets:10,reps:'rounds',weight:'—',tempo:'4-4-4-4',rest:'—',note:'Inhale 4 · Hold 4 · Exhale 4 · Hold 4. WHM synergy.',tags:[],ss:null},
-      {name:'Chin Tucks',muscle:'Mobility',sets:3,reps:'10',weight:'—',tempo:'hold 5s',rest:'30s',note:'C-SPINE. Priority with your neck situation. Chin straight back.',tags:['crit'],ss:null},
-      {name:'Thoracic Foam Roller',muscle:'Mobility',sets:5,reps:'60s each',weight:'—',tempo:'—',rest:'—',note:'5 positions up spine. Critical for upper back.',tags:[],ss:null},
-      {name:'Cat-Cow + Thread-the-Needle',muscle:'Mobility',sets:1,reps:'15+8 ea.',weight:'—',tempo:'breath',rest:'—',note:'Full breath cat-cow. Thread-the-needle rotation.',tags:[],ss:null},
-      {name:'90/90 Hip Stretch',muscle:'Mobility',sets:2,reps:'2 min ea.',weight:'—',tempo:'—',rest:'—',note:'Both hips at 90°. Breathe into tightness.',tags:[],ss:null},
-      {name:'Couch Stretch',muscle:'Mobility',sets:2,reps:'90s ea.',weight:'—',tempo:'—',rest:'—',note:'Rear foot elevated. Hip flexor length.',tags:[],ss:null},
-      {name:'Deep Squat Hold',muscle:'Mobility',sets:1,reps:'2 min',weight:'—',tempo:'—',rest:'—',note:'Heels flat. Breathe and let hips sink.',tags:[],ss:null},
-      {name:"World's Greatest Stretch",muscle:'Mobility',sets:2,reps:'5 ea.',weight:'—',tempo:'—',rest:'—',note:'Lunge → inside hand → rotate → hamstring reach.',tags:[],ss:null},
-      {name:'Wall Slides',muscle:'Mobility',sets:3,reps:'8–12',weight:'—',tempo:'slow',rest:'30s',note:'Scapular upward rotation. Low back flat on wall.',tags:[],ss:null},
-      {name:'Shoulder CARs',muscle:'Mobility',sets:1,reps:'5 circles ea.',weight:'—',tempo:'slow',rest:'—',note:'Controlled articular rotation.',tags:[],ss:null},
-      {name:'Dead Hang',muscle:'Mobility',sets:3,reps:'30–45s',weight:'—',tempo:'—',rest:'45s',note:'C-SPINE. Passive traction. Relax completely.',tags:['crit'],ss:null},
-      {name:'Bear Crawl',muscle:'Mobility',sets:2,reps:'10–20m',weight:'—',tempo:'slow',rest:'30s',note:'Contralateral. Core + shoulder.',tags:[],ss:null},
-      {name:'Supine Spinal Twist',muscle:'Mobility',sets:1,reps:'90s ea.',weight:'—',tempo:'—',rest:'—',note:'Cool down. Let gravity work.',tags:[],ss:null},
+      {name:'Box Breathing',muscle:'Mobility',sets:10,reps:'rounds',weight:'—',tempo:'4-4-4-4',rest:'—',note:'Inhale 4 · Hold 4 · Exhale 4 · Hold 4. Pairs with WHM practice.',tags:[],ss:null},
+      {name:'Chin Tucks',muscle:'Mobility',sets:3,reps:'10',weight:'—',tempo:'hold 5s',rest:'30s',note:'C-SPINE PRIORITY. Chin straight back, not down. Most important 3 min of the session.',tags:['crit'],ss:null},
+      {name:'Neck Lateral Flexion Stretch',muscle:'Mobility',sets:2,reps:'30s ea. side',weight:'—',tempo:'—',rest:'—',note:'Ear to shoulder. Hand behind back. Gentle. No pulling. For your nerve disk recovery.',tags:['crit'],ss:null},
+      {name:'Cat-Cow + Thread-the-Needle',muscle:'Mobility',sets:1,reps:'15+8 ea.',weight:'—',tempo:'breath',rest:'—',note:'Cat-cow full breath. Thread-the-needle for thoracic rotation.',tags:[],ss:null},
+      {name:'Thoracic Extension over Chair',muscle:'Mobility',sets:3,reps:'60s each position',weight:'—',tempo:'—',rest:'—',note:'Replaces foam roller. Sit in chair, interlace hands behind head, arch back over chair back. 3 positions up the spine.',tags:[],ss:null},
+      {name:'90/90 Hip Stretch',muscle:'Mobility',sets:2,reps:'2 min ea.',weight:'—',tempo:'—',rest:'—',note:'Both hips at 90° on floor. Breathe into tightness.',tags:[],ss:null},
+      {name:'Couch Stretch',muscle:'Mobility',sets:2,reps:'90s ea.',weight:'—',tempo:'—',rest:'—',note:'Rear foot on couch/chair behind you. Hip flexor length.',tags:[],ss:null},
+      {name:'Deep Squat Hold',muscle:'Mobility',sets:1,reps:'2 min',weight:'—',tempo:'—',rest:'—',note:'Heels flat or slight heel raise. Breathe and let hips sink.',tags:[],ss:null},
+      {name:"World's Greatest Stretch",muscle:'Mobility',sets:2,reps:'5 ea.',weight:'—',tempo:'—',rest:'—',note:'Lunge → inside hand → rotate arm up → hamstring reach.',tags:[],ss:null},
+      {name:'Band Pull-Aparts',muscle:'Mobility',sets:3,reps:'20',weight:'Light band',tempo:'slow',rest:'30s',note:'Replaces wall slides for scapular health. Arms straight, pull band apart at chest height.',tags:[],ss:null},
+      {name:'Band Face Pull (elastic)',muscle:'Mobility',sets:3,reps:'15',weight:'Band',tempo:'2-1-2',rest:'30s',note:'Anchor band in door at eye height. Pull to forehead. Elbows HIGH. C-spine.',tags:['crit'],ss:null},
+      {name:'Shoulder CARs',muscle:'Mobility',sets:1,reps:'5 circles ea.',weight:'—',tempo:'slow',rest:'—',note:'Controlled articular rotation. Full range. No equipment needed.',tags:[],ss:null},
+      {name:'Bear Crawl',muscle:'Mobility',sets:2,reps:'10–20m',weight:'—',tempo:'slow',rest:'30s',note:'Contralateral pattern. Core + shoulder stability.',tags:[],ss:null},
+      {name:'Supine Spinal Twist',muscle:'Mobility',sets:1,reps:'90s ea.',weight:'—',tempo:'—',rest:'—',note:'Cool down. Lie on back. Let gravity work.',tags:[],ss:null},
     ]},
 };
 
@@ -863,7 +868,13 @@ function renderLogPage(defaultType){
       <div class="card" style="margin-top:10px;">
         <div class="g2">
           <div class="field"><label>Date</label><input type="date" id="log-date" value="${now.toISOString().split('T')[0]}"></div>
-          <div class="field"><label>Time</label><input type="time" id="log-time" value="${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}"></div>
+          <div class="field"><label>Start time</label><input type="time" id="log-time" value="${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}"></div>
+        </div>
+        <div class="field"><label>End time <span style="font-weight:400;color:var(--text2);">(fills duration)</span></label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="time" id="log-end-time" oninput="calcDuration()" style="flex:1;">
+            <div id="log-duration" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;min-width:60px;color:var(--y);">—</div>
+          </div>
         </div>
         <div class="field"><label>Session type</label>
           <select id="log-type">
@@ -979,16 +990,36 @@ function renderLogExercises(){
   }).join('');
 }
 
+function calcDuration(){
+  const start=document.getElementById('log-time')?.value;
+  const end=document.getElementById('log-end-time')?.value;
+  const el=document.getElementById('log-duration');
+  if(!start||!end||!el){return;}
+  const [sh,sm]=start.split(':').map(Number);
+  const [eh,em]=end.split(':').map(Number);
+  let mins=(eh*60+em)-(sh*60+sm);
+  if(mins<0)mins+=1440;
+  const h=Math.floor(mins/60),m=mins%60;
+  el.textContent=h>0?`${h}h ${m}m`:`${m}m`;
+}
+
 function saveWorkout(){
   const date=document.getElementById('log-date')?.value;
   const time=document.getElementById('log-time')?.value;
+  const endTime=document.getElementById('log-end-time')?.value||'';
   const type=document.getElementById('log-type')?.value;
   const notes=document.getElementById('log-notes')?.value||'';
   const rec=document.getElementById('log-rec')?.value||'';
   if(!date){alert('Select a date');return;}
   if(!currentExercises.length){alert('Add at least one exercise');return;}
+  // calc duration
+  let durationMins=null;
+  if(time&&endTime){
+    const[sh,sm]=time.split(':').map(Number);const[eh,em]=endTime.split(':').map(Number);
+    let mins=(eh*60+em)-(sh*60+sm);if(mins<0)mins+=1440;durationMins=mins;
+  }
   const data=wLoad();
-  const w={id:editingId||('w'+Date.now()),date,time,type,notes,recovery:rec,phase:getPhase(date),
+  const w={id:editingId||('w'+Date.now()),date,time,endTime,durationMins,type,notes,recovery:rec,phase:getPhase(date),
     exercises:currentExercises.map(ex=>({name:ex.name,muscle:ex.muscle,ssLabel:ex.ssLabel||null,
       sets:ex.sets.filter(s=>s.r||s.kg||s.n)}))};
   if(editingId){const i=data.findIndex(x=>x.id===editingId);if(i>=0)data[i]=w;else data.push(w);}
@@ -1070,6 +1101,8 @@ function renderCalendarPage(){
           <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--blk);"></div>Logged session</div>
           <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(0,170,68,.3);border:2px solid var(--green);"></div>Next session</div>
           <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(255,214,0,.3);border:2px solid var(--y);"></div>Today</div>
+          <div class="cal-legend-item"><div style="width:8px;height:8px;border-radius:2px;border:2px solid var(--green);position:relative;"><div style="width:4px;height:4px;border-radius:50%;background:var(--green);position:absolute;bottom:-2px;right:-2px;"></div></div>&nbsp;Recovery day</div>
+          <div class="cal-legend-item" style="color:var(--text3);">⠿ Drag session to move date</div>
         </div>
       </div>
       <div class="section-title">Upcoming schedule</div>
@@ -1091,12 +1124,16 @@ function calNav(dir){
 
 const CAL_COLORS={Push:'var(--push)',Pull:'var(--pull)',Legs:'var(--legs)',UpperB:'var(--upb)',Mobility:'var(--mob)',Other:'var(--text2)'};
 
+// ─── DRAG RESCHEDULE STATE ────────────────────────────────────────────────────
+let calDragWkId=null;
+
 function renderCalGrid(){
   const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const dows=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   document.getElementById('cal-month-label').textContent=months[calMonth]+' '+calYear;
   const data=wLoad();const workoutsByDate={};
   data.forEach(w=>{workoutsByDate[w.date]=(workoutsByDate[w.date]||[]).concat(w);});
+  const recAll=rLoad();
   const calCustom=cLoad();
   const nextSessions=getNextSessions(14);
   const nextDates={};nextSessions.forEach(s=>{nextDates[s.date]=s;});
@@ -1109,18 +1146,30 @@ function renderCalGrid(){
   for(let d=1;d<=lastDay.getDate();d++){
     const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const wks=workoutsByDate[dateStr];
+    const recDay=recAll[dateStr];
     const custom=calCustom[dateStr];
     const isToday=dateStr===today;
     const isNext=nextDates[dateStr];
     const hasWk=wks&&wks.length>0;
     const hasCustom=custom&&custom.type;
+    // Recovery: any item done counts as a recovery day
+    const hasRec=recDay&&Object.values(recDay).some(v=>v&&v.done);
     let cls='cal-day';
     if(isToday)cls+=' today';
     if(hasWk)cls+=' has-workout';
     else if(isNext&&!hasCustom)cls+=' next-session';
+    if(hasRec&&!hasWk)cls+=' has-recovery';
     const typeToShow=hasWk?wks[0].type:(hasCustom?custom.type:(isNext?isNext.type:null));
     const color=typeToShow?CAL_COLORS[typeToShow]:'transparent';
-    html+=`<div class="${cls}" onclick="calDayClick('${dateStr}')">
+    const wkId=hasWk?wks[0].id:null;
+    html+=`<div class="${cls}"
+      onclick="calDayClick('${dateStr}')"
+      draggable="${hasWk?'true':'false'}"
+      ondragstart="${hasWk?`calDragStart(event,'${wkId}','${dateStr}')`:''}"
+      ondragover="calDragOver(event)"
+      ondragleave="calDragLeave(event)"
+      ondrop="calDrop(event,'${dateStr}')"
+      data-date="${dateStr}">
       <div class="cal-day-num">${d}</div>
       ${typeToShow?`<div class="cal-type-dot" style="background:${color};"></div><div class="cal-type-label" style="color:${hasWk?'#fff':color};">${typeToShow.substring(0,3)}</div>`:''}
     </div>`;
@@ -1128,6 +1177,99 @@ function renderCalGrid(){
   const remaining=(7-(startDow+lastDay.getDate())%7)%7;
   for(let i=0;i<remaining;i++)html+=`<div class="cal-day empty other-month"></div>`;
   document.getElementById('cal-grid').innerHTML=html;
+}
+
+function calDragStart(e,wkId,fromDate){
+  calDragWkId=wkId;
+  e.dataTransfer.effectAllowed='move';
+  e.currentTarget.style.opacity='.4';
+}
+function calDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  document.querySelectorAll('.cal-day').forEach(el=>el.classList.remove('drag-cal-over'));
+  e.currentTarget.classList.add('drag-cal-over');
+}
+function calDragLeave(e){e.currentTarget.classList.remove('drag-cal-over');}
+function calDrop(e,toDate){
+  e.preventDefault();
+  document.querySelectorAll('.cal-day').forEach(el=>{el.classList.remove('drag-cal-over');el.style.opacity='';});
+  if(!calDragWkId)return;
+  const data=wLoad();
+  const w=data.find(x=>x.id===calDragWkId);
+  if(!w||w.date===toDate){calDragWkId=null;return;}
+  // Show reschedule modal
+  showRescheduleModal(calDragWkId,w.date,toDate);
+  calDragWkId=null;
+}
+
+function showRescheduleModal(wkId,fromDate,toDate){
+  const data=wLoad();
+  const w=data.find(x=>x.id===wkId);if(!w)return;
+  // Find workouts after fromDate that might be affected
+  const affected=data.filter(x=>x.date>fromDate&&x.date<=toDate||x.date>toDate&&x.date<=fromDate).slice(0,5);
+  const ov=document.createElement('div');ov.className='overlay';ov.id='reschedule-overlay';
+  ov.innerHTML=`<div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Reschedule Session</div>
+    <div style="background:var(--card2);border-radius:10px;padding:12px;margin-bottom:14px;border:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <span class="badge ${w.type}">${w.type}</span>
+          <div style="font-size:12px;color:var(--text2);margin-top:4px;">${fmtD(fromDate)}</div>
+        </div>
+        <div style="font-size:20px;color:var(--text2);">→</div>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;">${fmtD(toDate)}</div>
+          <div style="font-size:11px;color:var(--green);">New date</div>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Why are you rescheduling?</label>
+      <textarea id="reschedule-reason" rows="3" placeholder="e.g. Travel, fatigue, scheduling conflict, neck recovery..."></textarea>
+    </div>
+    <div style="background:rgba(255,214,0,.08);border-left:4px solid var(--y);padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:14px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Align following sessions?</div>
+      <div style="font-size:12px;margin-bottom:8px;color:var(--text);">This moves the session to the new date. You can also shift all following sessions forward/back to maintain the correct rotation.</div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-y btn-sm" onclick="confirmReschedule('${wkId}','${fromDate}','${toDate}',true)">Move + Realign following</button>
+        <button class="btn btn-ghost btn-sm" onclick="confirmReschedule('${wkId}','${fromDate}','${toDate}',false)">Move only</button>
+      </div>
+    </div>
+    <button class="btn btn-ghost btn-full btn-sm" onclick="this.closest('.overlay').remove()">Cancel</button>
+  </div>`;
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  document.body.appendChild(ov);
+}
+
+function confirmReschedule(wkId,fromDate,toDate,realign){
+  const reason=document.getElementById('reschedule-reason')?.value||'';
+  const data=wLoad();
+  const idx=data.findIndex(x=>x.id===wkId);
+  if(idx<0)return;
+  const dayDiff=(new Date(toDate)-new Date(fromDate))/(864e5);
+  // Store reschedule log in the workout
+  data[idx].date=toDate;
+  data[idx].rescheduled={from:fromDate,to:toDate,reason,date:new Date().toISOString()};
+  if(realign&&dayDiff!==0){
+    // Shift all future workouts by same number of days
+    for(let i=0;i<data.length;i++){
+      if(i===idx)continue;
+      if(data[i].date>fromDate){
+        const d=new Date(data[i].date);
+        d.setDate(d.getDate()+dayDiff);
+        data[i].date=d.toISOString().split('T')[0];
+        if(!data[i].realignNote)data[i].realignNote=[];
+        data[i].realignNote.push(`Shifted ${dayDiff>0?'+':''}${dayDiff}d due to reschedule of ${fromDate} ${wkId} — "${reason}"`);
+      }
+    }
+  }
+  data.sort((a,b)=>a.date.localeCompare(b.date));
+  wSave(data);
+  document.querySelectorAll('.overlay').forEach(o=>o.remove());
+  renderCalGrid();renderCalUpcoming();renderCalThisWeek();
+  alert(`✓ Moved to ${fmtD(toDate)}${realign?' — following sessions realigned':''}.${reason?' Reason: '+reason:''}`);
 }
 
 function calDayClick(dateStr){
@@ -1269,11 +1411,13 @@ function renderHistWk(){
     return`<div class="hist-card ${ph==='Phase2'?'ph2':'ph1'}" onclick="showDetail('${w.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div style="flex:1;">
-          <div class="hist-date">${fmtD(w.date)}${w.time?' · <span style="font-weight:400;font-size:14px;color:var(--text2);">'+w.time+'</span>':''}</div>
+          <div class="hist-date">${fmtD(w.date)}${w.time?' · <span style="font-weight:400;font-size:14px;color:var(--text2);">'+w.time+(w.endTime?' → '+w.endTime:'')+'</span>':''}</div>
+          ${w.durationMins?`<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--y);margin-bottom:2px;">⏱ ${Math.floor(w.durationMins/60)>0?Math.floor(w.durationMins/60)+'h ':''} ${w.durationMins%60}min session</div>`:''}
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin:5px 0;">
             <span class="badge ${w.type}">${w.type}</span>
             <span class="badge ${ph}">${ph}</span>
             ${w.recovery?`<span style="font-size:11px;color:var(--text2);">${w.recovery.split('—')[0].trim()}</span>`:''}
+          ${w.rescheduled?`<span style="font-size:10px;background:rgba(255,136,0,.1);color:var(--amber);border-radius:4px;padding:2px 6px;font-family:'Barlow Condensed',sans-serif;font-weight:700;">↕ RESCHEDULED</span>`:''}
           </div>
           <div class="hist-meta">${[...new Set(w.exercises.map(e=>e.muscle))].slice(0,4).join(' · ')}</div>
         </div>
@@ -1317,7 +1461,8 @@ function showDetail(id){
   ov.innerHTML=`<div class="modal">
     <div class="modal-handle"></div>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
-      <div><div class="modal-title" style="margin-bottom:4px;">${fmtD(w.date)}${w.time?' · '+w.time:''}</div>
+      <div><div class="modal-title" style="margin-bottom:4px;">${fmtD(w.date)}${w.time?' · '+w.time+(w.endTime?' → '+w.endTime:''):''}</div>
+      ${w.durationMins?`<div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--y);margin-bottom:4px;">⏱ ${Math.floor(w.durationMins/60)>0?Math.floor(w.durationMins/60)+'h ':''} ${w.durationMins%60}min</div>`:''}
       <div><span class="badge ${w.type}">${w.type}</span> <span class="badge ${w.phase||getPhase(w.date)}">${w.phase||getPhase(w.date)}</span></div></div>
       <button class="btn btn-ghost btn-xs" onclick="this.closest('.overlay').remove()">✕</button>
     </div>
@@ -1327,6 +1472,8 @@ function showDetail(id){
       <div class="stat"><div class="stat-v">${vol}t</div><div class="stat-l">Volume</div></div>
       <div class="stat"><div class="stat-v">${w.recovery?w.recovery[0]:'—'}</div><div class="stat-l">Recovery</div></div>
     </div>
+    ${w.rescheduled?`<div style="background:rgba(255,136,0,.08);border-left:3px solid var(--amber);padding:8px 12px;border-radius:0 8px 8px 0;font-size:11px;margin-bottom:10px;"><strong>Rescheduled</strong> from ${fmtD(w.rescheduled.from,true)} → ${fmtD(w.rescheduled.to,true)}${w.rescheduled.reason?'<br>"'+w.rescheduled.reason+'"':''}</div>`:''}
+    ${w.realignNote&&w.realignNote.length?`<div style="background:rgba(0,102,255,.06);border-left:3px solid var(--pull);padding:6px 12px;border-radius:0 8px 8px 0;font-size:10px;color:var(--text2);margin-bottom:10px;">↕ Auto-realigned: ${w.realignNote[w.realignNote.length-1]}</div>`:''}
     ${w.exercises.map(ex=>`<div style="background:var(--card2);border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid var(--border);">
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;margin-bottom:6px;">${ex.name} <span style="color:var(--text2);font-weight:400;font-size:11px;">${ex.muscle}</span></div>
       ${ex.sets.map((s,i)=>`<div style="display:flex;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);align-items:center;">
@@ -1379,6 +1526,7 @@ function editWk(id){
   setTimeout(()=>{
     const d=document.getElementById('log-date');if(d)d.value=w.date;
     const ti=document.getElementById('log-time');if(ti)ti.value=w.time||'';
+    const te=document.getElementById('log-end-time');if(te){te.value=w.endTime||'';calcDuration();}
     const t=document.getElementById('log-type');if(t)t.value=w.type;
     const n=document.getElementById('log-notes');if(n)n.value=w.notes||'';
     const r=document.getElementById('log-rec');if(r)r.value=w.recovery||'';
