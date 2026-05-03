@@ -2133,11 +2133,12 @@ function showPg(p){
     document.getElementById('pg-'+id).classList.toggle('hidden',id!==p);
     const n=document.getElementById('nav-'+id);if(n)n.classList.toggle('on',id===p);
   });
-  if(p==='program')renderProgramPage();
-  else if(p==='log'){if(!document.getElementById('pg-log').innerHTML.includes('log-date'))renderLogPage();}
   // Float timer only visible on log page
   const ft=document.getElementById('timer-float');
   if(ft)ft.classList.toggle('visible',p==='log');
+  // Render pages
+  if(p==='program')renderProgramPage();
+  else if(p==='log'){if(!document.getElementById('pg-log').innerHTML.includes('log-date'))renderLogPage();}
   else if(p==='recovery')renderRecoveryPage();
   else if(p==='calendar')renderCalendarPage();
   else if(p==='history')renderHistoryPage();
