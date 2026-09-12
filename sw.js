@@ -1,4 +1,4 @@
-const CACHE = 'bash-v8';
+const CACHE = 'bash-v9';
 const ASSETS = [
   './',
   './index.html',

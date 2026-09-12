@@ -515,6 +515,30 @@ label {
 .cmp-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cmp-val { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 12px; text-align: right; }
 .cmp-up { color: var(--green); } .cmp-down { color: var(--red); } .cmp-flat { color: var(--text3); }
+
+/* ══════════════════════════════════════════════════════
+   V12 ADDITIONS
+══════════════════════════════════════════════════════ */
+.set-extra { display: flex; gap: 6px; align-items: center; margin: -3px 0 7px 26px; font-size: 10px; color: var(--text2); flex-wrap: wrap; }
+.set-extra label { font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
+.set-extra input { width: 48px; font-size: 12px; padding: 4px 5px; }
+.log-helper { font-size: 11px; color: var(--text2); background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; margin-bottom: 8px; }
+.readiness-badge { display: inline-flex; align-items: center; gap: 5px; font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 12px; padding: 4px 10px; border-radius: 20px; }
+.taper-banner { background: rgba(255,136,0,.1); border: 1px solid rgba(255,136,0,.3); border-radius: 10px; padding: 9px 12px; font-size: 11px; color: var(--amber); margin-bottom: 12px; line-height: 1.4; }
+.pain-banner { background: rgba(255,45,45,.08); border: 1px solid rgba(255,45,45,.25); border-radius: 10px; padding: 9px 12px; font-size: 11px; color: var(--red); margin-bottom: 12px; line-height: 1.4; }
+.heatmap-grid { display: grid; grid-template-columns: repeat(53, 1fr); grid-template-rows: repeat(7, 1fr); grid-auto-flow: column; gap: 2px; height: 90px; }
+.heatmap-cell { aspect-ratio: 1; border-radius: 2px; background: var(--border); }
+.heatmap-legend { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text2); margin-top: 8px; }
+.heatmap-legend span { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.measure-row, .photo-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.photo-thumb { width: 74px; height: 74px; border-radius: 8px; overflow: hidden; position: relative; border: 1px solid var(--border); }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.photo-thumb .photo-del { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,.6); color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; line-height: 18px; text-align: center; padding: 0; }
+.photo-thumb .photo-date { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,.55); color: #fff; font-size: 8px; text-align: center; padding: 1px 0; }
+.status-line { font-size: 11px; color: var(--text2); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.plate-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.plate-chip { background: var(--card2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 700; font-family: 'Barlow Condensed', sans-serif; }
 </style>
 </head>
 <body>
@@ -625,6 +649,70 @@ function toast(msg,kind){
 }
 const MUSCLE_GUESS=[[/calf|calves/i,'Calves'],[/abs|core|crunch|scissor|plank|dead bug|pallof/i,'Core'],[/push-?up|chest|fly/i,'Chest'],[/shoulder|delt|raise/i,'Shoulders'],[/triceps|pushdown|skull/i,'Triceps'],[/curl/i,'Biceps'],[/row|pull|lat/i,'Back'],[/good morning|rdl|deadlift|hamstring/i,'Hamstrings'],[/squat|lunge|leg/i,'Legs'],[/glute|thrust/i,'Glutes']];
 function guessMuscle(name){for(const[r,m]of MUSCLE_GUESS)if(r.test(name))return m;return'Other';}
+
+// ─── V12 ADDITIONS — plates, warm-up, 1RM, tonnage, readiness, cues, status ──
+const APP_VERSION='V12';
+const APP_BUILD='2026-09-12';
+const DEFAULT_PLATES=[25,20,15,10,5,2.5,1.25]; // kg per side, standard Olympic set
+const DEFAULT_BAR=20;
+const UNI_RX=/single-leg|single-arm|bulgarian|unilateral|per leg|per arm|each side|split squat/i;
+const isUnilateral=name=>UNI_RX.test(name||'');
+function getPlateInv(){const p=pLoad();return{plates:(p.plates&&p.plates.length?p.plates:DEFAULT_PLATES).slice().sort((a,b)=>b-a),bar:p.barKg!=null?p.barKg:DEFAULT_BAR};}
+function savePlateInv(plates,bar){const p=pLoad();p.plates=plates;p.barKg=bar;pSave(p);}
+function platesFor(targetKg,barKg){
+  const inv=getPlateInv();const useBar=barKg!=null?barKg:inv.bar;
+  let side=(targetKg-useBar)/2;if(side<=0)return{bar:useBar,side:[],leftover:0};
+  const out=[];for(const p of inv.plates){while(side>=p-1e-9){out.push(p);side-=p;}}
+  return{bar:useBar,side:out,leftover:Math.round(side*100)/100};
+}
+function platesLabel(targetKg,barKg){
+  if(!targetKg)return'';
+  const r=platesFor(targetKg,barKg);
+  if(!r.side.length)return targetKg<=r.bar?'bar only':'—';
+  return r.side.join('+')+'/side'+(r.leftover>0.1?` (+${r.leftover}kg short)`:'');
+}
+function warmupRamp(targetKg){
+  if(!targetKg||targetKg<=0)return[];
+  return[.4,.6,.8].map(f=>Math.round(targetKg*f/2.5)*2.5).filter((v,i,a)=>v>0&&a.indexOf(v)===i);
+}
+function est1RM(kg,reps){if(!kg||!reps)return 0;return Math.round(kg*(1+reps/30)*10)/10;}
+function best1RMInSets(sets){let best=0;(sets||[]).forEach(s=>{const k=parseKg(s.kg);const r=repsOf(s);if(k&&r){const e=est1RM(k,r);if(e>best)best=e;}});return best;}
+function lifetimeTonnage(){return wLoad().reduce((a,w)=>a+wkVol(w),0);}
+function yearHeatmapData(){const map={};wLoad().forEach(w=>{map[w.date]=(map[w.date]||0)+wkVol(w);});return map;}
+function readinessScore(){
+  // Heuristic 1–10 from last logged sleep hours vs recent training load. A rough guide, not medical advice.
+  const rec=rLoad();const dates=Object.keys(rec).sort();
+  let sleepHrs=null;
+  for(let i=dates.length-1;i>=0;i--){const s=rec[dates[i]]?.sleep;if(s&&s.hrs){sleepHrs=+s.hrs;break;}}
+  const data=wLoad();const since7=addDays(todayStr(),-7);const since28=addDays(todayStr(),-28);
+  const vol7=data.filter(w=>w.date>=since7).reduce((a,w)=>a+wkVol(w),0);
+  const vol28avg=data.filter(w=>w.date>=since28).reduce((a,w)=>a+wkVol(w),0)/4;
+  let score=7;
+  if(sleepHrs!=null){if(sleepHrs<6)score-=2;else if(sleepHrs<7)score-=1;else if(sleepHrs>=8)score+=1;}
+  if(vol28avg>0){const ratio=vol7/vol28avg;if(ratio>1.3)score-=2;else if(ratio>1.1)score-=1;else if(ratio<0.5)score+=1;}
+  return{score:Math.max(1,Math.min(10,Math.round(score))),sleepHrs};
+}
+function getCues(){return pLoad().cues||{};}
+function getCue(name){return getCues()[name]||'';}
+function setCue(name,val){const p=pLoad();if(!p.cues)p.cues={};if(val)p.cues[name]=val;else delete p.cues[name];pSave(p);}
+function getSyncStatus(){return pLoad().syncStatus||null;}
+function setSyncStatus(ok,msg){const p=pLoad();p.syncStatus={ok,msg,at:Date.now()};pSave(p);}
+function getLastBackup(){return pLoad().lastBackup||null;}
+function setLastBackup(){const p=pLoad();p.lastBackup=Date.now();pSave(p);}
+function daysAgo(ts){if(!ts)return null;return Math.floor((Date.now()-ts)/864e5);}
+function bestEst1RMForExercise(name){
+  let best=0;wLoad().forEach(w=>{const ex=w.exercises.find(e=>e.name===name);if(ex)best=Math.max(best,best1RMInSets(ex.sets));});
+  return best;
+}
+function detectNewPRs(beforeMap,workout){
+  const out=[];
+  workout.exercises.forEach(ex=>{
+    const top=Math.max(0,...ex.sets.map(s=>+s.kg||0));if(!top)return;
+    const prior=beforeMap[ex.name];const priorMax=prior?Math.max(0,...prior.entries.map(e=>e.kg)):0;
+    if(top>priorMax)out.push({name:ex.name,kg:Math.round(top*10)/10});
+  });
+  return out;
+}
 
 // ─── DATA MIGRATION v11 ──────────────────────────────────────────────────────
 // Runs once per version on the phone's own data. Fixes the "70k" / "—k" loads
@@ -751,7 +839,7 @@ const ALT_MAP={
 
 // ─── RECOVERY ITEMS ──────────────────────────────────────────────────────────
 const REC_ITEMS=[
-  {id:'whm',label:'WHM Breathwork',sub:'25 min session',note:true,ph:'Rounds · best retention, e.g. 3 × 2:10'},
+  {id:'whm',label:'WHM Breathwork',sub:'25 min session',note:true,ph:'Any extra notes',whmFields:true},
   {id:'ice_bath',label:'Ice Bath',sub:'Full immersion cold therapy',note:true,ph:'Duration e.g. 10:30',iceBath:true},
   {id:'cold',label:'Cold shower',sub:'5–7 min target',note:true,ph:'Duration (min)'},
   {id:'sauna',label:'Sauna',sub:'15–20 min',note:true,ph:'Duration + temp'},
@@ -762,7 +850,7 @@ const REC_ITEMS=[
   {id:'mob_full',label:'Full mobility Day E',sub:'60 min complete session'},
   {id:'walk',label:'Walk / nature / barefoot',sub:'',note:true,ph:'Duration'},
   {id:'hike',label:'Hike / trail',sub:'',note:true,ph:'Where + duration'},
-  {id:'sleep',label:'Sleep quality',sub:'',note:true,ph:'Hours + quality'},
+  {id:'sleep',label:'Sleep quality',sub:'',note:true,ph:'Quality notes',sleepField:true},
   {id:'nutrition',label:'Nutrition on point',sub:'Protein + hydration',note:true,ph:'Notes'},
   {id:'other',label:'Other recovery',sub:'',note:true,ph:'What you did'},
 ];
@@ -995,6 +1083,7 @@ function timerHTML(){
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let editingId=null,currentExercises=[],currentDayKey='A',progDayAuto=false;
+let currentPain={joint:'',severity:0,note:''},currentVoiceNote='';
 let histShowAll=false,repWkShowAll=false,repRecShowAll=false;
 let charts={};let dragIdx=null;
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
@@ -1020,9 +1109,10 @@ function todayStripHTML(){
   const left=phaseDaysLeft(p);
   const headline=todayWk.length?`✓ ${todayWk[0].type} logged today`:(isOffDay(today)?'Rest day — recovery work':(next?`Next up: ${next.type}${next.date===today?' today':' · '+fmtD(next.date,true)}`:'—'));
   const sub=phaseDone(p)?`${p.name} complete · add Phase ${p.n+1} to PHASES to continue`:`${p.name} · week ${phaseWeek(p)}/${p.weeks} · ${left} day${left===1?'':'s'} left`;
+  const rd=readinessScore();const rdColor=rd.score>=7?'var(--green)':rd.score>=5?'var(--amber)':'var(--red)';
   return`<div class="today-strip">
     <div class="today-main">
-      <div class="today-eyebrow">${fmtD(today)}</div>
+      <div class="today-eyebrow">${fmtD(today)} · <span class="readiness-badge" style="background:${rdColor}22;color:${rdColor};padding:2px 8px;">⚡ ${rd.score}/10${rd.sleepHrs!=null?' · '+rd.sleepHrs+'h sleep':''}</span></div>
       <div class="today-head">${headline}</div>
       <div class="today-sub">${sub}</div>
     </div>
@@ -1032,6 +1122,25 @@ function todayStripHTML(){
       <div><b>${phaseSessions}</b><i>${p.id.replace('Phase','P')} sessions</i></div>
     </div>
   </div>`;
+}
+function recentPainFlag(){
+  const data=wLoad().filter(w=>w.pain&&w.pain.joint).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,3);
+  if(data.length<2)return null;
+  const counts={};data.forEach(w=>{counts[w.pain.joint]=(counts[w.pain.joint]||0)+1;});
+  const top=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+  return top[1]>=2?{joint:top[0],count:top[1]}:null;
+}
+function programBannersHTML(){
+  let h='';
+  const cp=currentPhase();
+  if(!phaseDone(cp)&&phaseDaysLeft(cp)<=7){
+    h+=`<div class="taper-banner">⚠ Final week of ${cp.name} — consider a taper: drop volume ~30–40% this week rather than chasing new PRs before the switch.</div>`;
+  }
+  const pf=recentPainFlag();
+  if(pf){
+    h+=`<div class="pain-banner">⚠ ${pf.joint} flagged in ${pf.count} of your last 3 sessions${/neck/i.test(pf.joint)?' — treat as C6/C7-related until it clears' :''}. Worth easing that area or checking technique before pushing load.</div>`;
+  }
+  return h;
 }
 
 function renderProgramPage(){
@@ -1051,6 +1160,7 @@ function renderProgramPage(){
       <div class="hero-sub">${sub}</div>
     </div>
     <div class="pg-body">
+      ${programBannersHTML()}
       ${todayStripHTML()}
       <div class="tabs-wrap" id="prog-tabs-wrap">
         <div class="tabs">
@@ -1107,6 +1217,7 @@ function renderProgContent(){
         <div class="plan-spec"><span class="plan-spec-l">Rest</span><span class="plan-spec-v">${ex.rest}</span></div>
       </div>
       <div class="plan-note">${ex.note}</div>
+      ${getCue(ex.name)?`<div style="font-size:11px;color:var(--y2);margin-top:6px;">💡 ${esc(getCue(ex.name))}</div>`:''}
     </div>`;
   });
   h+=`</div>`;
@@ -1254,6 +1365,43 @@ function renderLogPage(defaultType){
           </select>
         </div>
       </div>
+      <div class="card">
+        <div class="section-title" style="margin-top:0;">Pain / niggle check <span style="font-size:10px;color:var(--text2);font-weight:400;text-transform:none;">optional</span></div>
+        <div class="g2">
+          <div class="field"><label>Joint / area</label>
+            <select id="log-pain-joint">
+              <option value="">— none —</option>
+              <option${currentPain.joint==='Neck (C6/C7)'?' selected':''}>Neck (C6/C7)</option>
+              <option${currentPain.joint==='Shoulder'?' selected':''}>Shoulder</option>
+              <option${currentPain.joint==='Elbow'?' selected':''}>Elbow</option>
+              <option${currentPain.joint==='Wrist'?' selected':''}>Wrist</option>
+              <option${currentPain.joint==='Lower back'?' selected':''}>Lower back</option>
+              <option${currentPain.joint==='Hip'?' selected':''}>Hip</option>
+              <option${currentPain.joint==='Knee'?' selected':''}>Knee</option>
+              <option${currentPain.joint==='Ankle'?' selected':''}>Ankle</option>
+              <option${currentPain.joint==='Other'?' selected':''}>Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Severity</label>
+            <select id="log-pain-sev">
+              <option value="0">—</option>
+              <option value="1"${currentPain.severity==1?' selected':''}>1 — mild</option>
+              <option value="2"${currentPain.severity==2?' selected':''}>2 — moderate</option>
+              <option value="3"${currentPain.severity==3?' selected':''}>3 — sharp/limiting</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>Note</label><input type="text" id="log-pain-note" value="${esc(currentPain.note||'')}" placeholder="where exactly, what triggered it"></div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-top:0;">🎤 Voice note</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-red btn-sm" id="vn-rec-btn" onclick="toggleVoiceRec()">${_vnRecorder&&_vnRecorder.state==='recording'?'■ Stop':'● Record'}</button>
+          <span id="vn-status" style="font-size:11px;color:var(--text2);">${currentVoiceNote?'Recorded':'No recording'}</span>
+        </div>
+        <audio id="vn-player" controls style="width:100%;margin-top:8px;${currentVoiceNote?'':'display:none;'}" ${currentVoiceNote?'src="'+currentVoiceNote+'"':''}></audio>
+        <button class="btn btn-ghost btn-xs" id="vn-del-btn" onclick="deleteVoiceNote()" style="margin-top:6px;${currentVoiceNote?'':'display:none;'}">Delete recording</button>
+      </div>
       <div style="display:flex;gap:8px;margin-bottom:8px;">
         <button class="btn btn-y btn-full" onclick="saveWorkout()" style="font-size:15px;">${editingId?'Update':'Save workout'}</button>
         ${editingId?'<button class="btn btn-ghost btn-sm" onclick="cancelEdit()">Cancel</button>':''}
@@ -1266,16 +1414,22 @@ function addEx(){
   const n=document.getElementById('new-ex-name')?.value.trim();
   const m=document.getElementById('new-ex-muscle')?.value;
   if(!n){alert('Enter name');return;}
-  currentExercises.push({name:n,muscle:m,ssLabel:null,planned:null,sets:[{r:'',kg:'',t:'',n:''}],saved:false,alts:ALT_MAP[n]||[]});
+  currentExercises.push({name:n,muscle:m,ssLabel:null,planned:null,sets:[{r:'',kg:'',t:'',n:'',rpe:'',kg2:''}],saved:false,alts:ALT_MAP[n]||[]});
   document.getElementById('new-ex-name').value='';
   renderLogExercises();saveDraft();
 }
-function addSet(i){const l=currentExercises[i].sets.slice(-1)[0]||{};currentExercises[i].sets.push({r:'',kg:'',t:l.t||'',n:''});currentExercises[i].saved=false;renderLogExercises();saveDraft();}
+function addSet(i){const l=currentExercises[i].sets.slice(-1)[0]||{};currentExercises[i].sets.push({r:'',kg:'',t:l.t||'',n:'',rpe:'',kg2:''});currentExercises[i].saved=false;renderLogExercises();saveDraft();}
 function dupSet(i,si){const s={...currentExercises[i].sets[si]};currentExercises[i].sets.splice(si+1,0,s);currentExercises[i].saved=false;renderLogExercises();saveDraft();}
 function rmSet(i,si){if(currentExercises[i].sets.length<=1)return;currentExercises[i].sets.splice(si,1);renderLogExercises();saveDraft();}
 function rmEx(i){currentExercises.splice(i,1);renderLogExercises();saveDraft();}
 function eSet(i,si,f,v){currentExercises[i].sets[si][f]=v;currentExercises[i].saved=false;saveDraft();}
 function saveEx(i){currentExercises[i].saved=true;saveDraft();const el=document.getElementById('sv-'+i);if(el)el.textContent='✓ Saved';}
+function editCue(i){
+  const ex=currentExercises[i];if(!ex)return;
+  const val=prompt('Permanent cue for '+ex.name+' (shown every time you log this exercise):',getCue(ex.name));
+  if(val==null)return;
+  setCue(ex.name,val.trim());renderLogExercises();
+}
 function subEx(i){
   const el=document.getElementById('alt-sel-'+i);
   if(!el||!el.value)return;
@@ -1284,7 +1438,7 @@ function subEx(i){
 }
 function saveDraft(){
   const d=document.getElementById('log-date');const t=document.getElementById('log-type');
-  localStorage.setItem(DK,JSON.stringify({exercises:currentExercises,type:t?.value||'',date:d?.value||'',editingId}));
+  localStorage.setItem(DK,JSON.stringify({exercises:currentExercises,type:t?.value||'',date:d?.value||'',editingId,pain:currentPain,voiceNote:currentVoiceNote}));
 }
 function getPrevHistory(exName){
   // Get last 5 sessions for this exercise, sorted best to worst by top weight
@@ -1358,6 +1512,7 @@ function renderLogExercises(){
         <div style="flex:1;">
           <input class="log-ex-name" value="${esc(ex.name)}" disabled>
           <div style="font-size:11px;color:var(--text2);margin-top:1px;">${ex.muscle}</div>
+          <div style="font-size:11px;color:var(--y2);margin-top:2px;">${getCue(ex.name)?`💡 ${esc(getCue(ex.name))} `:''}<span style="color:var(--text3);cursor:pointer;text-decoration:underline;" onclick="editCue(${i})">${getCue(ex.name)?'edit cue':'+ add cue'}</span></div>
         </div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">
           ${prev?`<button class="btn btn-amber btn-xs" onclick="copyLastSets(${i})" title="Copy last session">⚡</button>`:''}
@@ -1378,6 +1533,7 @@ function renderLogExercises(){
       </div>`:'';})()}
       ${p?`<div class="plan-hint">Plan: ${p.sets}×${p.reps} · ${p.weight} · ${p.tempo}</div>`:''}
       ${coachHint(ex)}
+      ${(()=>{const topKg=Math.max(0,...ex.sets.map(s=>+s.kg||0))||(prev?prev.kg:0);if(!topKg)return'';const wu=warmupRamp(topKg);const pl=platesLabel(topKg);return`<div class="log-helper">🏋 ${topKg}kg = ${pl}${wu.length?' · Warm-up '+wu.map(w=>w+'kg').join(' → ')+' → '+topKg+'kg':''}</div>`;})()}
       <div class="set-header"><span>#</span><span>Reps/Time</span><span>kg</span><span>Tempo</span><span>Note</span><span>⧉</span><span>−</span></div>
       ${ex.sets.map((s,si)=>`<div class="set-row">
         <div class="set-num">${si+1}</div>
@@ -1387,6 +1543,10 @@ function renderLogExercises(){
         <input type="text" value="${esc(s.n||'')}" placeholder="note" onchange="eSet(${i},${si},'n',this.value)">
         <button class="set-btn" onclick="dupSet(${i},${si})">⧉</button>
         <button class="set-btn" onclick="rmSet(${i},${si})">−</button>
+      </div>
+      <div class="set-extra">
+        <label>RPE</label><input type="number" min="1" max="10" step="0.5" value="${s.rpe||''}" placeholder="–" onchange="eSet(${i},${si},'rpe',this.value)">
+        ${isUnilateral(ex.name)?`<label>Other side</label><input type="number" step="0.5" value="${s.kg2===''||s.kg2==null?'':s.kg2}" placeholder="kg" onchange="eSet(${i},${si},'kg2',parseKg(this.value))">`:''}
       </div>`).join('')}
       <div id="sv-${i}" class="saved-tag">${ex.saved?'✓ Saved':''}</div>
       ${ex.alts.length?`<div class="alt-row">
@@ -1425,6 +1585,9 @@ function saveWorkout(){
   const type=document.getElementById('log-type')?.value;
   const notes=document.getElementById('log-notes')?.value||'';
   const rec=document.getElementById('log-rec')?.value||'';
+  const painJoint=document.getElementById('log-pain-joint')?.value||'';
+  const painSev=+(document.getElementById('log-pain-sev')?.value||0);
+  const painNote=document.getElementById('log-pain-note')?.value||'';
   if(!date){alert('Select a date');return;}
   if(!currentExercises.length){alert('Add at least one exercise');return;}
   // calc duration
@@ -1433,19 +1596,64 @@ function saveWorkout(){
     const[sh,sm]=time.split(':').map(Number);const[eh,em]=endTime.split(':').map(Number);
     let mins=(eh*60+em)-(sh*60+sm);if(mins<0)mins+=1440;durationMins=mins;
   }
+  const beforeMap=buildExMap();
   const data=wLoad();
   const w={id:editingId||('w'+Date.now()),date,time,endTime,durationMins,type,notes,recovery:rec,phase:getPhase(date),
+    pain:painJoint?{joint:painJoint,severity:painSev,note:painNote}:null,
+    voiceNote:currentVoiceNote||null,
     exercises:currentExercises.map(ex=>({name:ex.name,muscle:ex.muscle,ssLabel:ex.ssLabel||null,
       sets:ex.sets.filter(s=>s.r||s.kg||s.n).map(s=>({...s,kg:parseKg(s.kg)}))}))};
   if(editingId){const i=data.findIndex(x=>x.id===editingId);if(i>=0)data[i]=w;else data.push(w);}
   else data.push(w);
   data.sort((a,b)=>a.date.localeCompare(b.date));
-  wSave(data);localStorage.removeItem(DK);
-  editingId=null;currentExercises=[];
+  try{wSave(data);}catch(e){toast('⚠ Storage full — delete a voice note or photo, then retry');return;}
+  localStorage.removeItem(DK);
+  const prs=detectNewPRs(beforeMap,w);
+  editingId=null;currentExercises=[];currentPain={joint:'',severity:0,note:''};currentVoiceNote='';
   syncToGSheet();
-  toast('✓ Workout saved');showPg('history');
+  if(prs.length){const shown=prs.slice(0,2).map(p=>p.name+' '+p.kg+'kg').join(', ');toast('🏆 New PR: '+shown+(prs.length>2?' +'+(prs.length-2)+' more':''));}
+  else toast('✓ Workout saved');
+  showPg('history');
 }
-function cancelEdit(){editingId=null;currentExercises=[];localStorage.removeItem(DK);showPg('history');}
+function cancelEdit(){editingId=null;currentExercises=[];currentPain={joint:'',severity:0,note:''};currentVoiceNote='';localStorage.removeItem(DK);showPg('history');}
+
+// ─── VOICE NOTE (V12) — MediaRecorder, capped at 60s, base64 on the workout ──
+let _vnRecorder=null,_vnChunks=[],_vnStream=null;
+async function toggleVoiceRec(){
+  const btn=document.getElementById('vn-rec-btn');
+  if(_vnRecorder&&_vnRecorder.state==='recording'){_vnRecorder.stop();return;}
+  if(!navigator.mediaDevices||!window.MediaRecorder){toast('Mic recording not supported here');return;}
+  try{_vnStream=await navigator.mediaDevices.getUserMedia({audio:true});}
+  catch(e){toast('Mic permission denied');return;}
+  _vnChunks=[];
+  _vnRecorder=new MediaRecorder(_vnStream);
+  _vnRecorder.ondataavailable=e=>{if(e.data.size>0)_vnChunks.push(e.data);};
+  _vnRecorder.onstop=()=>{
+    _vnStream.getTracks().forEach(t=>t.stop());
+    const blob=new Blob(_vnChunks,{type:'audio/webm'});
+    const r=new FileReader();
+    r.onload=e=>{
+      currentVoiceNote=e.target.result;
+      const p=document.getElementById('vn-player');if(p){p.src=currentVoiceNote;p.style.display='';}
+      const del=document.getElementById('vn-del-btn');if(del)del.style.display='';
+      const st=document.getElementById('vn-status');if(st)st.textContent='Recorded';
+      saveDraft();
+    };
+    r.readAsDataURL(blob);
+    if(btn){btn.textContent='● Record';btn.classList.remove('btn-blk');btn.classList.add('btn-red');}
+  };
+  _vnRecorder.start();
+  if(btn){btn.textContent='■ Stop';btn.classList.remove('btn-red');btn.classList.add('btn-blk');}
+  const st=document.getElementById('vn-status');if(st)st.textContent='Recording… (auto-stops at 60s)';
+  setTimeout(()=>{if(_vnRecorder&&_vnRecorder.state==='recording')_vnRecorder.stop();},60000);
+}
+function deleteVoiceNote(){
+  currentVoiceNote='';
+  const p=document.getElementById('vn-player');if(p){p.removeAttribute('src');p.style.display='none';}
+  const del=document.getElementById('vn-del-btn');if(del)del.style.display='none';
+  const st=document.getElementById('vn-status');if(st)st.textContent='No recording';
+  saveDraft();
+}
 
 // ─── RECOVERY PAGE ────────────────────────────────────────────────────────────
 // ─── RECOVERY STREAKS ────────────────────────────────────────────────────────
@@ -1567,14 +1775,32 @@ function renderRecItems(){
             </div>
             <div id="ice-display-${item.id}" style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--blue);min-width:54px;">${displayTime}</div>
           </div>
-        </div>`:
-        item.note&&d.done?`<input type="text" value="${d.note||''}" id="rn-${item.id}" placeholder="${item.ph||''}" style="margin-top:5px;font-size:12px;">`:'';
+        </div>`:'';
+      const whmFields=item.whmFields&&d.done?
+        `<div style="margin-top:7px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Rounds · best retention</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="number" min="0" max="20" id="rwhm-rounds-${item.id}" value="${d.rounds!=null?d.rounds:''}" placeholder="0" style="width:50px;font-size:17px;font-weight:700;text-align:center;padding:6px;">
+            <span style="font-size:11px;color:var(--text2);">rounds</span>
+            <input type="number" min="0" max="20" id="rwhm-retm-${item.id}" value="${d.retMin!=null?d.retMin:''}" placeholder="0" style="width:44px;font-size:17px;font-weight:700;text-align:center;padding:6px;">
+            <span style="font-size:20px;color:var(--text3);">:</span>
+            <input type="number" min="0" max="59" id="rwhm-rets-${item.id}" value="${d.retSec!=null?d.retSec:''}" placeholder="0" style="width:44px;font-size:17px;font-weight:700;text-align:center;padding:6px;">
+            <span style="font-size:11px;color:var(--text2);">best hold</span>
+          </div>
+          <button class="btn btn-ghost btn-xs" onclick="openWhmTimer('${item.id}')" style="margin-top:6px;">▶ Guided round timer</button>
+        </div>`:'';
+      const sleepField=item.sleepField&&d.done?
+        `<div style="margin-top:7px;display:flex;align-items:center;gap:8px;">
+          <input type="number" min="0" max="14" step="0.5" id="rsleep-hrs-${item.id}" value="${d.hrs!=null?d.hrs:''}" placeholder="0" style="width:56px;font-size:17px;font-weight:700;text-align:center;padding:6px;">
+          <span style="font-size:11px;color:var(--text2);">hours slept</span>
+        </div>`:'';
+      const noteField=item.note&&d.done&&!item.iceBath?`<input type="text" value="${d.note||''}" id="rn-${item.id}" placeholder="${item.ph||''}" style="margin-top:5px;font-size:12px;">`:'';
       return`<div class="rec-item">
         <div class="rec-cb${d.done?' on':''}" id="rcb-${item.id}" onclick="toggleRec('${item.id}')"></div>
         <div style="flex:1;">
           <div class="rec-label">${item.label}</div>
           ${item.sub?`<div class="rec-sub">${item.sub}</div>`:''}
-          ${iceFields}
+          ${iceFields}${whmFields}${sleepField}${noteField}
         </div>
       </div>`;
     }).join('')}
@@ -1602,6 +1828,18 @@ function saveRecoveryLog(btn,silent){
       const sEl=document.getElementById('rib-secs-'+item.id);
       if(mEl)all[date][item.id].mins=parseInt(mEl.value)||0;
       if(sEl)all[date][item.id].secs=parseInt(sEl.value)||0;
+    } else if(item.whmFields){
+      const rEl=document.getElementById('rwhm-rounds-'+item.id);
+      const mEl=document.getElementById('rwhm-retm-'+item.id);
+      const sEl=document.getElementById('rwhm-rets-'+item.id);
+      if(rEl)all[date][item.id].rounds=parseInt(rEl.value)||0;
+      if(mEl)all[date][item.id].retMin=parseInt(mEl.value)||0;
+      if(sEl)all[date][item.id].retSec=parseInt(sEl.value)||0;
+      const inp=document.getElementById('rn-'+item.id);if(inp)all[date][item.id].note=inp.value;
+    } else if(item.sleepField){
+      const hEl=document.getElementById('rsleep-hrs-'+item.id);
+      if(hEl)all[date][item.id].hrs=parseFloat(hEl.value)||0;
+      const inp=document.getElementById('rn-'+item.id);if(inp)all[date][item.id].note=inp.value;
     } else if(item.note){
       const inp=document.getElementById('rn-'+item.id);
       if(inp)all[date][item.id].note=inp.value;
@@ -1626,6 +1864,72 @@ function toggleRec(id){
 }
 function updRecNote(id,val){}  // handled by saveRecoveryLog
 function updDayNotes(val){}    // handled by saveRecoveryLog
+
+// ─── WHM GUIDED ROUND TIMER (V12) ─────────────────────────────────────────────
+let _whmState=null;
+function openWhmTimer(itemId){
+  _whmState={itemId,round:0,phase:'ready',holdStart:0,holdInt:null};
+  const ov=document.createElement('div');ov.className='overlay';ov.id='whm-overlay';
+  ov.innerHTML=`<div class="modal" style="text-align:center;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Guided WHM Round</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:16px;">30 breaths, then hold on empty lungs. Tap Hold when you stop breathing, tap Breathe when you inhale to recover.</div>
+    <div id="whm-round-count" style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--text2);margin-bottom:6px;">ROUND 0</div>
+    <div id="whm-big-timer" style="font-family:'Barlow Condensed',sans-serif;font-size:56px;font-weight:900;color:var(--y);margin-bottom:18px;">0:00</div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn btn-y" onclick="whmStartHold()">Start Hold</button>
+      <button class="btn btn-green" onclick="whmRecover()" style="display:none;" id="whm-recover-btn">Breathe — Recover</button>
+      <button class="btn btn-ghost" onclick="whmNextRound()" id="whm-next-btn" style="display:none;">Next round ▶</button>
+    </div>
+    <div style="margin-top:16px;font-size:11px;color:var(--text2);">Rounds so far: <strong id="whm-rounds-done">0</strong> · Best hold: <strong id="whm-best-hold">0:00</strong></div>
+    <button class="btn btn-full btn-ghost" style="margin-top:16px;" onclick="closeWhmTimer()">Done — save to log</button>
+  </div>`;
+  ov.onclick=e=>{if(e.target===ov)closeWhmTimer();};
+  document.body.appendChild(ov);
+}
+function whmStartHold(){
+  _whmState.phase='hold';_whmState.holdStart=Date.now();
+  document.querySelector('#whm-overlay .btn-y').style.display='none';
+  document.getElementById('whm-recover-btn').style.display='';
+  clearInterval(_whmState.holdInt);
+  _whmState.holdInt=setInterval(()=>{
+    const s=Math.floor((Date.now()-_whmState.holdStart)/1000);
+    const el=document.getElementById('whm-big-timer');if(el)el.textContent=tFmt(s);
+  },250);
+}
+function whmRecover(){
+  clearInterval(_whmState.holdInt);
+  const heldSec=Math.floor((Date.now()-_whmState.holdStart)/1000);
+  _whmState.round++;_whmState.lastHold=heldSec;_whmState.bestHold=Math.max(_whmState.bestHold||0,heldSec);
+  document.getElementById('whm-recover-btn').style.display='none';
+  document.getElementById('whm-next-btn').style.display='';
+  document.getElementById('whm-rounds-done').textContent=_whmState.round;
+  document.getElementById('whm-best-hold').textContent=tFmt(_whmState.bestHold);
+  document.getElementById('whm-round-count').textContent='ROUND '+_whmState.round+' DONE — hold '+tFmt(heldSec);
+}
+function whmNextRound(){
+  document.getElementById('whm-next-btn').style.display='none';
+  document.querySelector('#whm-overlay .btn-y').style.display='';
+  document.getElementById('whm-big-timer').textContent='0:00';
+  document.getElementById('whm-round-count').textContent='ROUND '+(_whmState.round+1)+' — 30 breaths, then hold';
+}
+function closeWhmTimer(){
+  if(!_whmState)return;
+  clearInterval(_whmState.holdInt);
+  if(_whmState.round>0){
+    const rEl=document.getElementById('rwhm-rounds-'+_whmState.itemId);
+    const mEl=document.getElementById('rwhm-retm-'+_whmState.itemId);
+    const sEl=document.getElementById('rwhm-rets-'+_whmState.itemId);
+    if(rEl)rEl.value=_whmState.round;
+    if(mEl)mEl.value=Math.floor((_whmState.bestHold||0)/60);
+    if(sEl)sEl.value=(_whmState.bestHold||0)%60;
+    saveRecoveryLog(null,true);
+    toast('✓ '+_whmState.round+' rounds logged · best '+tFmt(_whmState.bestHold||0));
+  }
+  document.getElementById('whm-overlay')?.remove();
+  _whmState=null;
+  renderRecItems();
+}
 
 // ─── CALENDAR PAGE ────────────────────────────────────────────────────────────
 function renderCalendarPage(){
@@ -2049,6 +2353,8 @@ function renderHistWk(){
             <span class="badge ${ph}">${ph}</span>
             ${w.recovery?`<span style="font-size:11px;color:var(--text2);">${w.recovery.split('—')[0].trim()}</span>`:''}
           ${w.rescheduled?`<span style="font-size:10px;background:rgba(255,136,0,.1);color:var(--amber);border-radius:4px;padding:2px 6px;font-family:'Barlow Condensed',sans-serif;font-weight:700;">↕ RESCHEDULED</span>`:''}
+          ${w.pain&&w.pain.joint?`<span style="font-size:10px;background:rgba(255,45,45,.1);color:var(--red);border-radius:4px;padding:2px 6px;font-family:'Barlow Condensed',sans-serif;font-weight:700;">⚠ ${w.pain.joint}</span>`:''}
+          ${w.voiceNote?`<span style="font-size:10px;color:var(--text2);">🎤</span>`:''}
           </div>
           <div class="hist-meta">${[...new Set(w.exercises.map(e=>e.muscle))].slice(0,4).join(' · ')}</div>
         </div>
@@ -2106,16 +2412,20 @@ function showDetail(id){
     ${w.rescheduled?`<div style="background:rgba(255,136,0,.08);border-left:3px solid var(--amber);padding:8px 12px;border-radius:0 8px 8px 0;font-size:11px;margin-bottom:10px;"><strong>Rescheduled</strong> from ${fmtD(w.rescheduled.from,true)} → ${fmtD(w.rescheduled.to,true)}${w.rescheduled.reason?'<br>"'+w.rescheduled.reason+'"':''}</div>`:''}
     ${w.realignNote&&w.realignNote.length?`<div style="background:rgba(0,102,255,.06);border-left:3px solid var(--pull);padding:6px 12px;border-radius:0 8px 8px 0;font-size:10px;color:var(--text2);margin-bottom:10px;">↕ Auto-realigned: ${w.realignNote[w.realignNote.length-1]}</div>`:''}
     ${compareHTML(w)}
+    ${w.pain&&w.pain.joint?`<div class="pain-banner">⚠ ${w.pain.joint} — severity ${w.pain.severity||1}/3${w.pain.note?': "'+esc(w.pain.note)+'"':''}</div>`:''}
     ${w.exercises.map(ex=>`<div style="background:var(--card2);border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid var(--border);">
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;margin-bottom:6px;">${ex.name} <span style="color:var(--text2);font-weight:400;font-size:11px;">${ex.muscle}</span></div>
-      ${ex.sets.map((s,i)=>`<div style="display:flex;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);align-items:center;">
+      ${ex.sets.map((s,i)=>`<div style="display:flex;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap;">
         <span style="color:var(--text3);font-family:'Barlow Condensed',sans-serif;font-weight:700;min-width:16px;">${i+1}</span>
         <span style="font-weight:600;">${s.r||'—'} ${s.kg?'@ '+s.kg+'kg':''}</span>
+        ${s.kg2?`<span style="color:var(--text2);font-size:10px;">(other side ${s.kg2}kg)</span>`:''}
+        ${s.rpe?`<span style="color:var(--amber);font-size:10px;font-weight:700;">RPE ${s.rpe}</span>`:''}
         ${s.t?`<span style="color:var(--text2);">${s.t}</span>`:''}
         ${s.n?`<span style="color:var(--text2);font-style:italic;flex:1;">${s.n}</span>`:''}
       </div>`).join('')}
     </div>`).join('')}
     ${w.notes?`<div class="alert-y">"${w.notes}"</div>`:''}
+    ${w.voiceNote?`<audio controls src="${w.voiceNote}" style="width:100%;margin-top:8px;"></audio>`:''}
     <div style="display:flex;gap:8px;margin-top:12px;">
       <button class="btn btn-amber btn-sm" onclick="editWk('${w.id}');this.closest('.overlay').remove()">✏ Edit</button>
       <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="this.closest('.overlay').remove()">Close</button>
@@ -2158,7 +2468,9 @@ function editWk(id){
   const w=wLoad().find(x=>x.id===id);if(!w)return;
   editingId=id;
   currentExercises=w.exercises.map(ex=>({name:ex.name,muscle:ex.muscle,ssLabel:ex.ssLabel||null,planned:null,
-    sets:ex.sets.length?ex.sets.map(s=>({...s})):[{r:'',kg:'',t:'',n:''}],saved:true,alts:ALT_MAP[ex.name]||[]}));
+    sets:ex.sets.length?ex.sets.map(s=>({...s,rpe:s.rpe||'',kg2:s.kg2===''||s.kg2==null?'':s.kg2})):[{r:'',kg:'',t:'',n:'',rpe:'',kg2:''}],saved:true,alts:ALT_MAP[ex.name]||[]}));
+  currentPain=w.pain?{...w.pain}:{joint:'',severity:0,note:''};
+  currentVoiceNote=w.voiceNote||'';
   document.querySelectorAll('.overlay').forEach(o=>o.remove());
   renderLogPage(w.type);
   setTimeout(()=>{
@@ -2185,9 +2497,13 @@ function renderReportPage(){
   const now=new Date();
   const cp=currentPhase();const wkDone=phaseWeek(cp);const pct=phasePct(cp);
   const map=buildExMap();
-  const prs=Object.entries(map).filter(([,v])=>v.entries.length).map(([n,v])=>({n,pr:Math.round(Math.max(...v.entries.map(e=>e.kg))*10)/10,m:v.muscle})).sort((a,b)=>b.pr-a.pr);
+  const prs=Object.entries(map).filter(([,v])=>v.entries.length).map(([n,v])=>{
+    const best=v.entries.reduce((a,e)=>e.kg>a.kg?e:a,v.entries[0]);
+    return{n,pr:Math.round(best.kg*10)/10,m:v.muscle,date:best.date};
+  }).sort((a,b)=>b.pr-a.pr);
   const totalSets=data.reduce((a,w)=>a+w.exercises.reduce((b,e)=>b+e.sets.length,0),0);
   const totalVol=data.reduce((a,w)=>a+w.exercises.reduce((b,e)=>b+e.sets.reduce((c,s)=>c+(+s.r||0)*(+s.kg||0),0),0),0);
+  const lastBackup=daysAgo(getLastBackup());
 
   document.getElementById('pg-report').innerHTML=`
     <div class="pg-hero">
@@ -2196,11 +2512,13 @@ function renderReportPage(){
       <div class="hero-sub">${data.length} total sessions · ${ph3.length} Phase 3 · ${ph2.length} Phase 2</div>
     </div>
     <div class="pg-body">
-      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" onclick="exportTxt()">⬇ Export</button>
         <button class="btn btn-blk btn-sm" onclick="backupJSON()">💾 Backup</button>
         <button class="btn btn-amber btn-sm" onclick="restoreJSON()">⬆ Restore</button>
       </div>
+      <div class="status-line" style="margin-bottom:6px;"><span class="status-dot" style="background:${lastBackup==null?'var(--text3)':lastBackup<=7?'var(--green)':lastBackup<=30?'var(--amber)':'var(--red)'};"></span>${lastBackup==null?'No backup taken yet':'Last backup: '+lastBackup+' day'+(lastBackup===1?'':'s')+' ago'}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:14px;">🏆 Lifetime: <strong style="color:var(--text);">${tonnes(lifetimeTonnage())}t</strong> lifted across ${data.length} sessions since ${fmtD(PHASES[0].start,true)}</div>
 
       <!-- PHASE 3 TIMELINE -->
       <div class="card card-accent">
@@ -2464,10 +2782,12 @@ function renderProgAnalysis(map,ph3,wkDone){
 
 function renderPRList(prs){
   const el=document.getElementById('pr-list');if(!el)return;
-  el.innerHTML=prs.slice(0,12).map(p=>`<div class="pr-row">
-    <div><div class="pr-name">${p.n}</div><div class="pr-muscle">${p.m}</div></div>
+  el.innerHTML=prs.slice(0,12).map(p=>{
+    const days=p.date?Math.floor((new Date(todayStr()+'T12:00:00')-new Date(p.date+'T12:00:00'))/864e5):null;
+    return`<div class="pr-row">
+    <div><div class="pr-name">${p.n}</div><div class="pr-muscle">${p.m}${days!=null?' · '+(days===0?'today':days+'d since PR'):''}</div></div>
     <div style="text-align:right;"><div class="pr-val">${p.pr} kg</div>${/^barbell deadlift$/i.test(p.n)?`<div style="font-size:10px;color:var(--text2);">plates · ${p.pr+20}kg with bar</div>`:''}</div>
-  </div>`).join('');
+  </div>`;}).join('');
 }
 
 function renderVolChart(data){
@@ -2586,6 +2906,35 @@ function renderProgVolWk(){
   const note=document.getElementById('progVolNote');
   if(note){const done=s.slice(0,-1).filter(x=>x.n);const avg=done.length?done.reduce((a,x)=>a+x.vol,0)/done.length:0;
     note.innerHTML=`Avg <strong>${tonnes(avg)}t</strong> per training week · this week ${tonnes(cur.vol)}t (${cur.n} session${cur.n===1?'':'s'}, in progress)`+(dl.length?` · <span style="color:var(--amber);font-weight:700;">${dl.length} low-volume week${dl.length>1?'s':''} flagged in orange</span>`:'')+`. Mobility days add no tonnage.`;}
+}
+// ─── V12: SESSION LENGTH + YEARLY HEATMAP ──────────────────────────────────
+let progLenCh=null;
+function renderProgLenChart(){
+  const el=document.getElementById('progLenChart');if(!el)return;
+  if(progLenCh){progLenCh.destroy();progLenCh=null;}
+  const s=wLoad().filter(w=>w.durationMins).slice(-20);
+  if(!s.length){el.parentElement.style.display='none';return;}
+  el.parentElement.style.display='';
+  progLenCh=new Chart(el.getContext('2d'),{type:'line',
+    data:{labels:s.map(w=>fmtD(w.date,true)),datasets:[{data:s.map(w=>w.durationMins),borderColor:'#0066FF',backgroundColor:'rgba(0,102,255,.1)',fill:true,tension:.3,borderWidth:2,pointRadius:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+' min'}}},
+      scales:{y:{ticks:{color:progChartTextColor(),callback:v=>v+'m'},grid:{color:progChartGridColor()}},x:{ticks:{color:progChartTextColor(),font:{size:9},maxTicksLimit:6},grid:{display:false}}}}});
+}
+function renderProgHeatmap(){
+  const el=document.getElementById('prog-heatmap');if(!el)return;
+  const year=new Date().getFullYear();
+  const map=yearHeatmapData();
+  const maxVol=Math.max(1,...Object.entries(map).filter(([d])=>d.startsWith(String(year))).map(([,v])=>v));
+  const start=new Date(year,0,1);const startDow=(start.getDay()+6)%7; // Monday-first
+  let html='';
+  for(let i=0;i<startDow;i++)html+='<div></div>';
+  for(let d=new Date(year,0,1);d.getFullYear()===year;d.setDate(d.getDate()+1)){
+    const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const vol=map[ds]||0;const ratio=vol/maxVol;
+    const bg=vol===0?'var(--border)':ratio>0.66?'rgba(0,170,68,1)':ratio>0.33?'rgba(0,170,68,.6)':'rgba(0,170,68,.3)';
+    html+=`<div class="heatmap-cell" style="background:${bg};" title="${ds}: ${tonnes(vol)}t"></div>`;
+  }
+  el.innerHTML=html;
 }
 
 const PROG_TYPES=['Push','Pull','Legs','UpperB'];
@@ -2736,6 +3085,19 @@ function renderProgressPage(){
         <div id="progTypeBars2"></div>
       </div>
 
+      <!-- SESSION LENGTH -->
+      <div class="card">
+        <div class="section-title" style="margin-top:0;">Session Length — last 20</div>
+        <div class="chart-wrap" style="height:150px;"><canvas id="progLenChart"></canvas></div>
+      </div>
+
+      <!-- YEARLY HEATMAP -->
+      <div class="card">
+        <div class="section-title" style="margin-top:0;">Training Heatmap — ${new Date().getFullYear()}</div>
+        <div class="heatmap-grid" id="prog-heatmap"></div>
+        <div class="heatmap-legend">Less <span style="background:var(--border);"></span><span style="background:rgba(0,170,68,.3);"></span><span style="background:rgba(0,170,68,.6);"></span><span style="background:rgba(0,170,68,1);"></span> More</div>
+      </div>
+
       <!-- INSIGHTS -->
       <div class="card">
         <div class="section-title" style="margin-top:0;">Trend Summary</div>
@@ -2750,6 +3112,8 @@ function renderProgressPage(){
   renderProgRecChart2();
   renderProgTypeBars2();
   renderProgInsights2();
+  renderProgLenChart();
+  renderProgHeatmap();
 }
 
 function switchProgType(type,btn){
@@ -2894,9 +3258,9 @@ function renderProgEachExercise(){
         </div>
       </div>
       <div style="height:120px;position:relative;"><canvas id="each_ch_${idx}"></canvas></div>
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-top:8px;">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;font-size:10px;color:var(--text2);margin-top:8px;">
         <span>${allE.length} session${allE.length!==1?'s':''} total${ph2.length?' · '+ph2.length+' P2':''}${ph3.length?' · '+ph3.length+' P3':''}</span>
-        <span>Peak: <strong>${peak}kg</strong></span>
+        <span>Peak: <strong>${peak}kg</strong> · Est. 1RM: <strong>${bestEst1RMForExercise(ex.name)}kg</strong></span>
       </div>
     </div>`;
   }).join('');
@@ -3087,8 +3451,54 @@ function renderProfilePage(){
       </div>
 
       <div class="card">
+        <div class="section-title" style="margin-top:0;">Body Measurements</div>
+        <div class="g3" style="margin-bottom:8px;">
+          <div class="field"><label>Date</label><input type="date" id="meas-date" value="${todayStr()}"></div>
+          <div class="field"><label>Waist (cm)</label><input type="number" step="0.5" id="meas-waist"></div>
+          <div class="field"><label>Chest (cm)</label><input type="number" step="0.5" id="meas-chest"></div>
+        </div>
+        <div class="g2" style="margin-bottom:8px;">
+          <div class="field"><label>Arms (cm)</label><input type="number" step="0.5" id="meas-arms"></div>
+          <div class="field"><label>Thighs (cm)</label><input type="number" step="0.5" id="meas-thighs"></div>
+        </div>
+        <button class="btn btn-y btn-full btn-sm" onclick="logMeasurement()">Log measurements</button>
+        <div id="meas-hist" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-top:0;">Progress Photos</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">Stored only on this phone, same as your profile photo. Keep them small — large photos eat into the same storage as your training data.</div>
+        <input type="file" id="pphoto-inp" accept="image/*" style="display:none;" onchange="loadProgressPhoto(this)">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('pphoto-inp').click()">+ Add photo</button>
+        <div class="photo-grid" id="photo-grid" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="card">
         <div class="section-title" style="margin-top:0;">Recovery Impact</div>
         <div id="rec-impact"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-top:0;">🍽 Nutrition Log</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Nutrition is tracked in your separate project — link it here for one-tap access instead of duplicating it in this app.</div>
+        <div class="field"><input type="text" id="nutrition-link" value="${prof.nutritionUrl||''}" placeholder="https://..." onchange="savePF('nutritionUrl',this.value)"></div>
+        ${prof.nutritionUrl?`<button class="btn btn-ghost btn-sm" onclick="window.open('${esc(prof.nutritionUrl)}','_blank')">Open ↗</button>`:''}
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-top:0;">🏋 Plate Inventory</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Used by the plate calculator on the Log page. Defaults to a standard Olympic set — edit to match what's actually in your gym.</div>
+        <div class="field"><label>Bar weight (kg)</label><input type="number" id="plates-bar" value="${getPlateInv().bar}"></div>
+        <div class="field"><label>Plates available per side (kg, comma-separated)</label><input type="text" id="plates-list" value="${getPlateInv().plates.join(', ')}"></div>
+        <button class="btn btn-ghost btn-sm" onclick="savePlatesFromUI()">Save plate inventory</button>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-top:0;">📱 App Status</div>
+        <div class="status-line"><span class="status-dot" style="background:var(--green);"></span>Running ${APP_VERSION} · built ${APP_BUILD}</div>
+        <div id="sync-status-line"></div>
+        <div id="backup-status-line"></div>
+        <div class="field" style="margin-top:8px;"><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="notif-toggle" ${prof.notifEnabled?'checked':''} onchange="toggleNotifPref(this.checked)" style="width:auto;"> Session reminders (only while the app is open)</label></div>
       </div>
 
       <div class="card">
@@ -3138,7 +3548,95 @@ function doGet(e) {
         </details>
       </div>
     </div>`;
-  renderBMIHist(prof);renderRecImpact();
+  renderBMIHist(prof);renderRecImpact();renderMeasureHist();renderPhotoGrid();renderStatusLines();
+}
+// ─── V12: BODY MEASUREMENTS ────────────────────────────────────────────────
+function logMeasurement(){
+  const date=document.getElementById('meas-date')?.value;if(!date){alert('Pick a date');return;}
+  const waist=+(document.getElementById('meas-waist')?.value)||null;
+  const chest=+(document.getElementById('meas-chest')?.value)||null;
+  const arms=+(document.getElementById('meas-arms')?.value)||null;
+  const thighs=+(document.getElementById('meas-thighs')?.value)||null;
+  if(!waist&&!chest&&!arms&&!thighs){alert('Enter at least one measurement');return;}
+  const p=pLoad();if(!p.measures)p.measures=[];
+  p.measures.push({date,waist,chest,arms,thighs});
+  p.measures.sort((a,b)=>a.date.localeCompare(b.date));pSave(p);
+  renderMeasureHist();toast('✓ Measurements logged');
+}
+function renderMeasureHist(){
+  const el=document.getElementById('meas-hist');if(!el)return;
+  const log=(pLoad().measures||[]).slice().reverse().slice(0,6);
+  if(!log.length){el.innerHTML='<div style="font-size:11px;color:var(--text2);">No entries yet.</div>';return;}
+  el.innerHTML=log.map(m=>`<div class="pr-row"><div><div class="pr-name">${fmtD(m.date,true)}</div></div><div style="font-size:11px;color:var(--text2);text-align:right;">${[m.waist?'Waist '+m.waist:'',m.chest?'Chest '+m.chest:'',m.arms?'Arms '+m.arms:'',m.thighs?'Thighs '+m.thighs:''].filter(Boolean).join(' · ')}</div></div>`).join('');
+}
+// ─── V12: PROGRESS PHOTOS ──────────────────────────────────────────────────
+function loadProgressPhoto(inp){
+  const file=inp.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const p=pLoad();if(!p.photos)p.photos=[];
+    p.photos.push({date:todayStr(),url:e.target.result});
+    try{pSave(p);}catch(err){alert('Storage full — delete an old photo first');return;}
+    renderPhotoGrid();toast('✓ Photo added');
+  };
+  r.readAsDataURL(file);
+  inp.value='';
+}
+function deleteProgressPhoto(idx){
+  if(!confirm('Delete this photo?'))return;
+  const p=pLoad();(p.photos||[]).splice(idx,1);pSave(p);renderPhotoGrid();
+}
+function renderPhotoGrid(){
+  const el=document.getElementById('photo-grid');if(!el)return;
+  const photos=pLoad().photos||[];
+  el.innerHTML=photos.slice().reverse().map((ph,ri)=>{const idx=photos.length-1-ri;
+    return`<div class="photo-thumb"><img src="${ph.url}"><div class="photo-date">${fmtD(ph.date,true)}</div><button class="photo-del" onclick="deleteProgressPhoto(${idx})">✕</button></div>`;
+  }).join('')||'<div style="font-size:11px;color:var(--text2);">No photos yet.</div>';
+}
+// ─── V12: PLATE INVENTORY SETTINGS ─────────────────────────────────────────
+function savePlatesFromUI(){
+  const bar=+(document.getElementById('plates-bar')?.value)||DEFAULT_BAR;
+  const list=(document.getElementById('plates-list')?.value||'').split(',').map(s=>+s.trim()).filter(n=>n>0);
+  savePlateInv(list.length?list:DEFAULT_PLATES,bar);
+  toast('✓ Plate inventory saved');
+}
+// ─── V12: APP / SYNC / BACKUP STATUS ───────────────────────────────────────
+function renderStatusLines(){
+  const sEl=document.getElementById('sync-status-line');
+  if(sEl){
+    const s=getSyncStatus();
+    if(!s)sEl.innerHTML='<div class="status-line"><span class="status-dot" style="background:var(--text3);"></span>No sync attempted yet</div>';
+    else{const ago=daysAgo(s.at);const agoTxt=ago===0?'today':ago+'d ago';
+      sEl.innerHTML=`<div class="status-line"><span class="status-dot" style="background:${s.ok?'var(--green)':'var(--red)'};"></span>${s.ok?'Last sync OK':'Last sync failed'} · ${agoTxt}</div>`;}
+  }
+  const bEl=document.getElementById('backup-status-line');
+  if(bEl){
+    const ts=getLastBackup();const ago=daysAgo(ts);
+    const col=ago==null?'var(--text3)':ago<=7?'var(--green)':ago<=30?'var(--amber)':'var(--red)';
+    const txt=ago==null?'No backup taken yet — use Backup on the Report page':'Last backup: '+ago+' day'+(ago===1?'':'s')+' ago';
+    bEl.innerHTML=`<div class="status-line"><span class="status-dot" style="background:${col};"></span>${txt}</div>`;
+  }
+}
+// ─── V12: LOCAL SESSION REMINDERS ──────────────────────────────────────────
+async function toggleNotifPref(on){
+  if(on){
+    if(!('Notification' in window)){alert('Notifications not supported in this browser');document.getElementById('notif-toggle').checked=false;return;}
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){alert('Notification permission denied');document.getElementById('notif-toggle').checked=false;return;}
+  }
+  savePF('notifEnabled',on);
+  if(on)checkTodayReminder();
+}
+function checkTodayReminder(){
+  const p=pLoad();if(!p.notifEnabled)return;
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  const today=todayStr();if(isOffDay(today))return;
+  const logged=wLoad().find(w=>w.date===today);if(logged)return;
+  const hr=new Date().getHours();if(hr<15)return; // only nudge in the afternoon
+  const nx=getNextSessions(1,0)[0];if(!nx||nx.date!==today)return;
+  const key='bsh_notif_shown_'+today;if(localStorage.getItem(key))return;
+  new Notification('Bash Training',{body:`${nx.type} session still open today.`});
+  localStorage.setItem(key,'1');
 }
 function calcAge(dob){if(!dob)return 37;const d=new Date(dob),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a;}
 function calcBMI(h,w){return h&&w?Math.round(w/((h/100)**2)*10)/10:'—';}
@@ -3249,10 +3747,13 @@ function syncToGSheetNow(){
   if(!url)return;
   const backup={version:'v5',exported:new Date().toISOString(),workouts:wLoad(),recovery:rLoad(),profile:(()=>{const p=pLoad();const{photoUrl,...rest}=p;return rest;})()};
   try{
-    fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(backup)}).catch(()=>{});
+    fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(backup)})
+      .then(()=>{setSyncStatus(true,'ok');renderStatusLines();})
+      .catch(()=>{setSyncStatus(false,'network error');renderStatusLines();});
     const el=document.getElementById('gsheet-status');
     if(el){el.textContent='✓ Synced '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});el.style.color='var(--green)';}
   }catch(e){
+    setSyncStatus(false,e.message);renderStatusLines();
     const el=document.getElementById('gsheet-status');
     if(el){el.textContent='Sync failed — check URL';el.style.color='var(--red)';}
   }
@@ -3300,6 +3801,7 @@ function backupJSON(){
   a.href=URL.createObjectURL(new Blob([JSON.stringify(b,null,2)],{type:'application/json'}));
   a.download=`bash_training_backup_${todayStr()}.json`;
   a.click();URL.revokeObjectURL(a.href);
+  setLastBackup();renderStatusLines();
 }
 function restoreJSON(){
   const inp=document.createElement('input');inp.type='file';inp.accept='.json';
@@ -3407,6 +3909,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(dr&&dr.exercises&&dr.exercises.length>0){
       if(confirm('You have an unsaved workout draft. Continue it?')){
         currentExercises=dr.exercises;editingId=dr.editingId||null;
+        currentPain=dr.pain||{joint:'',severity:0,note:''};currentVoiceNote=dr.voiceNote||'';
         showPg('log');
         setTimeout(()=>{
           if(dr.date){const d=document.getElementById('log-date');if(d)d.value=dr.date;}
@@ -3417,10 +3920,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
   }catch(e){}
   showPg('program');
+  try{checkTodayReminder();}catch(e){}
 });
 if('serviceWorker' in navigator && location.hostname !== 'www.claudeusercontent.com'){
   window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('./sw.js?v=8',{updateViaCache:'none'}).then(reg=>{
+    navigator.serviceWorker.register('./sw.js?v=9',{updateViaCache:'none'}).then(reg=>{
       reg.update();
       if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
       reg.addEventListener('updatefound',()=>{
