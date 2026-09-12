@@ -1,12 +1,12 @@
 {
-  "name": "Bash Training Phase 3",
-  "short_name": "Bash Training",
-  "description": "Personal fitness tracker — Phase 3: The Peak Phase",
-  "start_url": "./",
+  "name": "Bash Training",
+  "short_name": "Bash",
+  "description": "Personal fitness tracker",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#00c878",
-  "theme_color": "#00c878",
+  "background_color": "#0D0D0D",
+  "theme_color": "#FFD600",
   "orientation": "portrait-primary",
   "prefer_related_applications": false,
   "icons": [
